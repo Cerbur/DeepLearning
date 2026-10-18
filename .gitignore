@@ -1,0 +1,49 @@
+# Local Python runtimes and virtual environments
+.python/
+.venv/
+venv/
+env/
+.conda/
+
+# Python and tool caches
+__pycache__/
+*.py[cod]
+.uv_cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Downloaded datasets and temporary corpus checkouts
+data/
+.data/
+/temp_cp/
+
+# Model weights and training output
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+checkpoints/
+runs/
+wandb/
+lightning_logs/
+
+# Build and packaging output
+build/
+dist/
+*.egg-info/
+
+# Logs and local secrets
+*.log
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Machine-specific editor, OS and harness state
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+/.dsh-acl/
