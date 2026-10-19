@@ -1,0 +1,12 @@
+{"text":"日常交流需要先理解对方的问题，再给出清楚、简洁的回答。"}
+{"text":"做饭前先洗手，再清洗蔬菜。煮面时可以根据口味加入鸡蛋和青菜。"}
+{"text":"今天有一点累，可以先喝一杯水，再休息十分钟。"}
+{"text":"Learning English takes practice. A little reading every day helps."}
+{"text":"Python 会保留字符串中的空格与换行。\n例如：print(\"hello world\")"}
+{"text":"周末可以散步、看书，或者和朋友一起吃饭。🦊"}
+{"messages":[{"role":"user","content":"你好，今天过得怎么样？"},{"role":"assistant","content":"你好！很高兴和你交流。你今天有什么想分享的吗？"}]}
+{"messages":[{"role":"user","content":"下雨天出门要带什么？"},{"role":"assistant","content":"可以带一把伞，穿防滑的鞋子，并留意天气变化。"}]}
+{"messages":[{"role":"user","content":"如何安排学习时间？"},{"role":"assistant","content":"先列出目标，再分成短任务。每学习一段时间，可以稍作休息。"}]}
+{"messages":[{"role":"user","content":"Can you give me a simple greeting?"},{"role":"assistant","content":"Hello! It is nice to meet you."}]}
+{"messages":[{"role":"system","content":"使用自然、礼貌的中文交流。"},{"role":"user","content":"我不知道晚餐吃什么。"},{"role":"assistant","content":"你想吃清淡一点，还是更喜欢热乎的饭菜？"}]}
+{"text":"记录待办事项：\n1. 整理房间\n2. 给植物浇水\n3. 联系家人 😊"}

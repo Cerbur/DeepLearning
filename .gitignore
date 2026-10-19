@@ -9,6 +9,9 @@ env/
 __pycache__/
 *.py[cod]
 .uv_cache/
+.uv-cache/
+.uv-agent-cache/
+torchinductor_*/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
