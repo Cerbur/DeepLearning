@@ -39,7 +39,7 @@ def assert_pretrain_checkpoint_matches_original(case, expected, actual):
     case.assertEqual(original_payload.pop("tokenizer")["type"], "CharTokenizer")
     original_payload["train_settings"].pop("sequence_mode", None)
     original_payload["train_settings"].pop("seq_len", None)
-    # 精度策略是新增元数据；CPU auto 仍与原 FP32 轨迹逐位一致。
+    # 在相同参考 attention 下，训练流程和元数据仍须与旧版本精确一致。
     case.assertEqual(original_payload["train_settings"].pop("precision"), "auto")
     assert_nested_equal(case, expected, original_payload)
 
@@ -68,7 +68,7 @@ class WorkflowTests(unittest.TestCase):
             self.assertFalse((path.parent / "vocab.json").exists())
             inputs = make_sequences(self.poems, restored)[:, :-1]
             with torch.no_grad():
-                torch.testing.assert_close(new(inputs), model(inputs), rtol=0, atol=0)
+                torch.testing.assert_close(new(inputs), model(inputs), rtol=1e-5, atol=1e-6)
             self.assertEqual(generate(new, restored, "春", top_k=1, structured=True),
                              self.original.generate(model, tokenizer, "春", top_k=1))
             self.assertEqual(generate(new, restored, " 春 ", top_k=1, structured=True),
@@ -96,8 +96,13 @@ class WorkflowTests(unittest.TestCase):
                         generate(model, tokenizer, structured=True)
                     self.assertEqual(tokenizer.tokens, tokens)
 
-    def test_training_and_resume_match_original_exactly(self):
-        with tempfile.TemporaryDirectory() as directory:
+    def test_training_and_resume_match_original_with_reference_attention(self):
+        # 此项锁定训练/检查点流程，双方使用同一参考 attention，避免将
+        # SDPA 舍入误差经 AdamW 放大后误判为流程差异，而不是放宽参数容差。
+        # 实际 SDPA 的数值/梯度由 test_attention_sdpa 覆盖，未打补丁的
+        # 连续训练/断点续训逐位一致性由 test_text_workflow 覆盖。
+        with mock.patch("sft_gpt.models.multi_head_attention.attention", self.original.attention), \
+                tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             data = root / "poems.tsv"
             data.write_text("text\n" + "\n".join(self.poems), encoding="utf-8")

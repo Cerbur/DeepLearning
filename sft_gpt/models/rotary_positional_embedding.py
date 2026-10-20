@@ -2,6 +2,7 @@ import torch
 from torch import nn
 
 from ..config import ROPE_BASE
+from .precision import promote_for_stability
 
 
 class RotaryPositionalEmbedding(nn.Module):
@@ -25,20 +26,23 @@ class RotaryPositionalEmbedding(nn.Module):
         self.register_buffer("sin", torch.sin(angles))  # sin(θ)
 
     def forward(self, x):
-        # x: [batch_size, num_heads, seq_len, head_dim]
-        sequence_length = x.shape[-2] # 获取序列长度
+        # 位置旋转显式 FP32；MHA 在旋转完成后才将 Q/K 转回 BF16。
+        with torch.autocast(device_type=x.device.type, enabled=False):
+            x = promote_for_stability(x)
+            # x: [batch_size, num_heads, seq_len, head_dim]
+            sequence_length = x.shape[-2] # 获取序列长度
 
-        cos = self.cos[:sequence_length] # 截取对应长度的 cos
-        sin = self.sin[:sequence_length] # 截取对应长度的 sin
+            cos = promote_for_stability(self.cos[:sequence_length]) # 截取对应长度的 cos
+            sin = promote_for_stability(self.sin[:sequence_length]) # 截取对应长度的 sin
 
-        even = x[..., ::2]  # 偶数维度
-        odd = x[..., 1::2]  # 奇数维度
+            even = x[..., ::2]  # 偶数维度
+            odd = x[..., 1::2]  # 奇数维度
 
-        rotated_even = even * cos - odd * sin  # 偶数维度旋转
-        rotated_odd = even * sin + odd * cos    # 奇数维度旋
+            rotated_even = even * cos - odd * sin  # 偶数维度旋转
+            rotated_odd = even * sin + odd * cos    # 奇数维度旋
 
-        # torch.stack((even, odd), dim=-1)	[[e0,o0],[e1,o1],...]
-        rotated_x = torch.stack((rotated_even, rotated_odd), dim=-1)  # 重新组合偶数和奇数维度
+            # torch.stack((even, odd), dim=-1)	[[e0,o0],[e1,o1],...]
+            rotated_x = torch.stack((rotated_even, rotated_odd), dim=-1)  # 重新组合偶数和奇数维度
 
-        # torch.stack(..., dim=-1).flatten(-2)	[e0,o0,e1,o1,...]
-        return rotated_x.flatten(-2)  # 展平最后两个维度，返回旋转后的 x
+            # torch.stack(..., dim=-1).flatten(-2)	[e0,o0,e1,o1,...]
+            return rotated_x.flatten(-2)  # 展平最后两个维度，返回旋转后的 x

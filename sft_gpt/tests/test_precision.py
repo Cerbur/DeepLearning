@@ -69,7 +69,10 @@ class PrecisionTests(unittest.TestCase):
             torch.manual_seed(456)
             with mock.patch("torch.autocast", wraps=torch.autocast) as autocast:
                 results.append(run_epoch(model, sequences, 1, "cpu", optimizer, 0.1, precision=precision))
-                autocast.assert_called_once_with(device_type="cpu", enabled=False)
+                # 训练入口和数值敏感模块都可显式禁用 AMP；CPU 路径绝不能启用它。
+                self.assertEqual(autocast.call_args_list[0], mock.call(device_type="cpu", enabled=False))
+                self.assertTrue(all(call.kwargs.get("enabled") is False
+                                    for call in autocast.call_args_list))
         self.assertEqual(*results)
         for left, right in zip(first.parameters(), second.parameters()):
             torch.testing.assert_close(left, right, rtol=0, atol=0)

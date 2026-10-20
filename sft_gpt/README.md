@@ -4,9 +4,9 @@
 
 ## 1. 保持不变的模型与环境
 
-九个模型实现保持原样：MiniGPT、GPTDecoder、GPTBlock、SwiGLU、RMSNorm、MultiHeadAttention、attention、RotaryPositionalEmbedding、TokenEmbedding。仅扩展模型之外的数据、分词、训练损失补齐处理、检查点和推理入口。源码与 AST、前向结果和梯度对照见测试。
+模型结构、参数形状、初始化和权重共享保持不变。Attention 使用 SDPA；RMSNorm、RoPE、残差及 SwiGLU 增加显式混合精度边界，不再要求这些模块的 forward 与旧源码逐字相同。未改动定义仍做源码与 AST 对照，模型初始化、FP32 前向结果及梯度另有回归测试。
 
-当前模型配置见 [config.py](config.py)：D_MODEL=288、NUM_HEADS=6、D_FF=768、NUM_LAYERS=8、MAX_SEQ_LEN=512、ROPE_BASE=10000、DROPOUT_RATE=0.1。本轮数据流程调整没有修改这些模型常量或网络实现；`--seq-len` 只决定数据打包长度，不能超过 MAX_SEQ_LEN。
+当前模型配置见 [config.py](config.py)：D_MODEL=288、NUM_HEADS=6、D_FF=768、NUM_LAYERS=8、MAX_SEQ_LEN=512、ROPE_BASE=10000、DROPOUT_RATE=0.1。数据流程和混合精度边界调整不修改这些模型常量或网络结构；`--seq-len` 只决定数据打包长度，不能超过 MAX_SEQ_LEN。
 
 所有命令在仓库根目录 `E:\Code\DeepLearning` 执行。沿用现有 uv 环境，**没有安装或升级依赖**。
 
@@ -162,12 +162,31 @@ uv run --project sft_gpt --no-sync python -m sft_gpt preTrain --resume sft_gpt/c
 
 ### BF16 混合精度（默认自动开启）
 
-新增训练精度策略，仅调整训练循环中的算子精度，不改模型结构：
+训练精度策略控制算子计算精度，并在模型中显式隔离 FP32 数值敏感区域；不改模型结构或参数存储类型：
 
 - 不传 `--precision`：新训练默认 `auto`，支持 BF16 的 CUDA（例如 RTX 4070 SUPER）启用 BF16，CPU 或不支持的设备保持 FP32。
 - `--precision bf16`：强制 BF16；设备不支持时明确报错，不静默改用 FP16。
 - `--precision fp32`：关闭本训练循环的 autocast，便于与旧训练对照。
-- 训练 objective、固定训练子集评估、验证使用同一精度。前向与 CrossEntropyLoss 放在 `torch.autocast(device_type="cuda", dtype=torch.bfloat16)` 中；交叉熵由 autocast 使用 FP32，反向、梯度裁剪、AdamW 和调度器在上下文外。不使用 GradScaler，不把整模型转换成 BF16，权重、梯度和优化器动量仍为 FP32。训练循环隔离调用方外层 autocast，并禁用 BF16 权重转换缓存，防止缓存跨优化器更新复用旧权重。
+- 训练 objective、固定训练子集评估、验证使用同一精度策略。仅模型前向放在 `torch.autocast(device_type="cuda", dtype=torch.bfloat16)` 中；启用 BF16 时，交叉熵在上下文外显式接收 `logits.float()`；非 BF16 路径保留输入 logits 的精度，包括独立 FP64 数值参考。反向、梯度裁剪、AdamW 和调度器也在上下文外。不使用 GradScaler，不把整模型转换成 BF16，权重、最终参数梯度和优化器动量仍为 FP32；反向内部算子不保证全部为 FP32。训练循环隔离调用方外层 autocast，并禁用 BF16 权重转换缓存，防止缓存跨优化器更新复用旧权重。
+
+BF16 策略启用时的显式边界（`auto` 解析为 BF16 或显式 `bf16` 均相同）：
+
+| 部分 | 计算/输出精度 |
+|---|---|
+| QKV、attention 输出投影、SwiGLU 三个 Linear、词表投影 | BF16 计算路径与输出；参数本体仍 FP32 |
+| SDPA 的 Q/K/V 与 attention 输出 | BF16；内部 softmax/归约交由稳定融合内核或 FP32 中间量的数学后端处理，不拆回低精度手写 softmax |
+| Embedding 输出、残差主干、dropout、残差加法 | FP32 |
+| RMSNorm 平方/均值/开方/缩放与输出 | 显式关闭 autocast，低精度输入先升 FP32 |
+| RoPE 位置/频率/sin/cos 表、旋转计算与输出 | FP32；进入 SDPA 前 Q/K 才转回 V 的 BF16 类型 |
+| SwiGLU 的 SiLU 与门控乘法 | 显式 FP32；down_proj 恢复 BF16 计算路径 |
+| 交叉熵与 loss | 显式 FP32，位于 BF16 autocast 外 |
+| 权重、最终参数梯度、AdamW 动量、完整训练检查点 | FP32，不进行 BF16 压缩导出 |
+| token ID、标签、布尔 mask | 保持整数/布尔语义，不转换为浮点 |
+
+数值敏感模块仅将 FP16/BF16 提升为 FP32，不降低独立 FP64 数值参考测试的精度。`fp32` 或 CPU 回退不启用 BF16；独立 `infer` 仍默认 FP32，本次没有增加 BF16 推理或 KV cache。边界调整可能改变 BF16 下的数值轨迹，已有 loss 历史不保证逐位一致。
+
+本次显式精度边界验证：项目环境 PyTorch 2.14.1+cu132 全量 **162 项测试通过**；Conda `pytorch` 环境 PyTorch 2.0.1 / CUDA 11.8 的 **31 项相关测试通过**（新增 13 项边界测试，以及 18 项既有精度、SDPA 和模型保留回归）。两套环境均在 RTX 4070 SUPER 实际执行 CUDA BF16 用例，没有跳过。新增 [边界回归测试](<tests/test_precision_boundaries.py>) 通过全层 hooks、真实 SDPA/交叉熵与独立数值参考检查 BF16/FP32 边界、FP32 梯度/AdamW 状态、CPU 回退及 FP64 兼容。本次未重新跑性能基准，也未安装或升级依赖。
+
 - checkpoint 的 `train_settings.precision` 保存请求策略；恢复默认复用，可显式覆盖。无该字段的旧检查点按 `auto` 处理；需要旧 FP32 数值轨迹时显式传 `--precision fp32`。切换精度/设备会影响 loss 和早停比较，不保证与旧历史逐位一致。
 
 以下命令在父目录执行，沿用现有环境，不安装依赖：
@@ -183,7 +202,7 @@ uv run --project sft_gpt --no-sync python -m sft_gpt preTrain --resume sft_gpt/c
 # 可追加 --bf16-first 交换顺序，复核温度/功率漂移；输出同时记录 TF32 设置
 ```
 
-最终代码实测（RTX 4070 SUPER，现有项目环境 PyTorch 2.14.1+cu132，batch=16、vocab=8192，TF32=False、float32_matmul_precision=highest；每模式预热 3 步，3 次各 10 步取耗时中位数；再交换 FP32/BF16 顺序复测）：
+历史版本实测（早于当前 SDPA 与显式精度边界调整，不能作为当前版本性能保证；RTX 4070 SUPER，现有项目环境 PyTorch 2.14.1+cu132，batch=16、vocab=8192，TF32=False、float32_matmul_precision=highest；每模式预热 3 步，3 次各 10 步取耗时中位数；再交换 FP32/BF16 顺序复测）：
 
 | 序列长度 | BF16 / FP32 训练吞吐比（正序 / 反序） | FP32 峰值 allocated 显存 | BF16 峰值 allocated 显存 |
 |---|---:|---:|---:|
@@ -192,9 +211,9 @@ uv run --project sft_gpt --no-sync python -m sft_gpt preTrain --resume sft_gpt/c
 
 默认 512 长度的两次运行均有提速，峰值 allocated 显存减少约 **8%**；128 短序列最终复测则慢约 **8%–14%**，显存减少约 **14%**，此时可用 `--precision fp32` 对照。先前单次短序列测量曾显示 1.29 倍，后续正反顺序复测未复现，不能当作稳定收益。不同运行间绝对耗时波动明显（512 正序 FP32/BF16 每步 316/280 ms，反序 113/82 ms），这里只报告两次实测比值，不承诺固定加速比，也不是全语料整轮基准。
 
-本次验证：现有项目环境全量 **136 项测试通过**；另在 Conda `pytorch` 环境（PyTorch 2.0.1 / CUDA 11.8）运行新增的 **9 项精度测试全部通过**，均实际执行 CUDA BF16 测试，包含有限 loss/梯度、FP32 参数/优化器状态、调度步数、padding loss、AMP 检查点 CPU 加载续训、精度策略恢复及旧检查点缺字段兼容。未安装或升级任何依赖。
+历史验证记录（不是当前改动的复测结果）：当时项目环境全量 **136 项测试通过**；另在 Conda `pytorch` 环境（PyTorch 2.0.1 / CUDA 11.8）运行新增的 **9 项精度测试全部通过**，均实际执行 CUDA BF16 测试，包含有限 loss/梯度、FP32 参数/优化器状态、调度步数、padding loss、AMP 检查点 CPU 加载续训、精度策略恢复及旧检查点缺字段兼容。未安装或升级任何依赖。
 
-BF16 通常能减少激活显存并加速矩阵运算，但参数、梯度、AdamW 状态仍占 FP32 显存；不能保证整体显存减半或固定 3–5 倍提速。模型尺寸、序列长度、数据准备和手写 attention 都影响收益。基准输出预热后多次测量的中位耗时、token/s 和 PyTorch 峰值 allocated 显存（不是 nvidia-smi 的总占用）；真实语料的整轮速度另受编码、评估和保存检查点影响。已启动的训练进程需要停止并从检查点重新启动才能使用新代码。
+BF16 通常能减少激活显存并加速矩阵运算，但参数、梯度、AdamW 状态仍占 FP32 显存；不能保证整体显存减半或固定 3–5 倍提速。模型尺寸、序列长度、数据准备、SDPA 后端和显式 FP32 边界都会影响收益。基准输出预热后多次测量的中位耗时、token/s 和 PyTorch 峰值 allocated 显存（不是 nvidia-smi 的总占用）；真实语料的整轮速度另受编码、评估和保存检查点影响。已启动的训练进程需要停止并从检查点重新启动才能使用新代码。
 
 ## 6. 普通文本推理与旧检查点
 

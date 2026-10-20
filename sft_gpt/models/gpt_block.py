@@ -1,9 +1,11 @@
+import torch
 from torch import nn
 
 from ..config import D_MODEL, DROPOUT_RATE
 from .multi_head_attention import MultiHeadAttention
 from .rms_norm import RMSNorm
 from .swiglu import SwiGLU
+from .precision import promote_for_stability
 
 
 class GPTBlock(nn.Module):
@@ -15,7 +17,13 @@ class GPTBlock(nn.Module):
         self.ffn = SwiGLU()  # 前馈网络
         self.dropout = nn.Dropout(DROPOUT_RATE)  # Dropout 层
 
-    def forward(self, x):        
-        x = x + self.dropout(self.attention(self.norm1(x)))  # 残差连接 + 注意力
-        x = x + self.dropout(self.ffn(self.norm2(x)))  # �残差连接 + 前馈网络
+    def forward(self, x):
+        x = promote_for_stability(x)
+        attention_output = self.attention(self.norm1(x))
+        # 分支可用 BF16；dropout 和残差累加显式保留 FP32 主干。
+        with torch.autocast(device_type=x.device.type, enabled=False):
+            x = x + self.dropout(promote_for_stability(attention_output))
+        ffn_output = self.ffn(self.norm2(x))
+        with torch.autocast(device_type=x.device.type, enabled=False):
+            x = x + self.dropout(promote_for_stability(ffn_output))
         return x

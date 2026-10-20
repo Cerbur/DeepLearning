@@ -1,4 +1,4 @@
-"""原始模型的逐文件拆分，计算实现未修改。"""
+"""模型逐文件实现；SDPA 注意力与显式混合精度边界，不改变网络结构。"""
 from .gpt_block import GPTBlock
 from .gpt_decoder import GPTDecoder
 from .mini_gpt import MiniGPT

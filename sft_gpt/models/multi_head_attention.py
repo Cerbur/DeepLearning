@@ -1,26 +1,35 @@
-import math
+# import math  # 原手写注意力使用；SDPA 内部完成缩放
+# import torch  # 原手写实现构造掩码和计算 softmax 时使用
 
-import torch
 from torch import nn
+from torch.nn import functional as F
 
 from ..config import D_MODEL, NUM_HEADS, MAX_SEQ_LEN
 from .rotary_positional_embedding import RotaryPositionalEmbedding
 
 
+# def attention(q, k, v):
+#     # [B, H, L, D] [L,D]
+#     scores = q @ k.transpose(-2, -1) / math.sqrt(q.shape[-1])  # 计算注意力分数
+#
+#     seq_len = q.shape[-2]
+#
+#     # 创建上三角掩码，防止模型看到未来的 token
+#     mask = torch.triu(torch.ones(seq_len, seq_len, dtype=torch.bool, device=q.device), diagonal=1)
+#
+#     scores = scores.masked_fill(mask, float("-inf"))  # 将上三角部分置为负无穷，softmax 后为 0
+#
+#     weights = torch.softmax(scores, dim=-1)  # 计算注意力权重
+#
+#     return weights @ v  # 返回加权后的值
+
+
 def attention(q, k, v):
-    # [B, H, L, D] [L,D]
-    scores = q @ k.transpose(-2, -1) / math.sqrt(q.shape[-1])  # 计算注意力分数
-    
-    seq_len = q.shape[-2]
-
-    # 创建上三角掩码，防止模型看到未来的 token
-    mask = torch.triu(torch.ones(seq_len, seq_len, dtype=torch.bool, device=q.device), diagonal=1)
-
-    scores = scores.masked_fill(mask, float("-inf"))  # 将上三角部分置为负无穷，softmax 后为 0
-
-    weights = torch.softmax(scores, dim=-1)  # 计算注意力权重
-
-    return weights @ v  # 返回加权后的值
+    # SDPA 等价于上方的 softmax(QK^T / sqrt(head_dim) + 因果掩码) @ V。
+    # is_causal=True 禁止关注未来 token，无需每次手动构造 [L, L] 掩码。
+    # 原实现没有注意力权重 dropout；保留 0.0，GPTBlock 的输出 dropout 不变。
+    # PyTorch 根据设备、dtype 和形状自动选择可用的融合内核或数学实现。
+    return F.scaled_dot_product_attention(q, k, v, dropout_p=0.0, is_causal=True)
 
 
 class MultiHeadAttention(nn.Module):
@@ -57,8 +66,12 @@ class MultiHeadAttention(nn.Module):
         k = split_heads(k)
         v = split_heads(v)
 
-        q = self.rope(q)
-        k = self.rope(k)
+        # q = self.rope(q)
+        # k = self.rope(k)
+        # RoPE 在显式 FP32 区域完成旋转；
+        # 转回 V 的 dtype，使 SDPA 的 Q/K/V 类型一致，并支持低精度融合内核。
+        q = self.rope(q).to(dtype=v.dtype)
+        k = self.rope(k).to(dtype=v.dtype)
 
         context = attention(q, k, v)  # 计算注意力输出
 

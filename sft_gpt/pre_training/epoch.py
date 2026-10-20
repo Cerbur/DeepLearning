@@ -28,14 +28,15 @@ def run_epoch(model, sequences, batch_size, device, optimizer=None,
                 continue
             if training:
                 optimizer.zero_grad(set_to_none=True)
-            # 仅前向和 loss 启用 autocast；CE 自动以 FP32 计算，反向在上下文外。
+            # 仅模型前向启用 BF16；loss 显式转换到 FP32 并在 autocast 外计算。
             # BF16 不需要 FP16 的 GradScaler，参数/梯度及 AdamW 状态仍为 FP32。
             # 外层上下文会延长 autocast 缓存寿命；禁用权重缓存，避免 step 后复用旧权重。
             context = (torch.autocast(device_type="cuda", dtype=torch.bfloat16, cache_enabled=False)
                        if precision == "bf16" else nullcontext())
             with context:
                 logits = model(inputs)
-                loss = criterion(logits.reshape(-1, logits.size(-1)), labels.reshape(-1))
+            loss_logits = logits.float() if precision == "bf16" else logits
+            loss = criterion(loss_logits.reshape(-1, logits.size(-1)), labels.reshape(-1))
             if not torch.isfinite(loss):
                 raise RuntimeError("出现非有限损失，请检查数据或降低学习率")
             if training:
