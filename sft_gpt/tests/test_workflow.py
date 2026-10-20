@@ -41,6 +41,12 @@ def assert_pretrain_checkpoint_matches_original(case, expected, actual):
     original_payload["train_settings"].pop("seq_len", None)
     # 在相同参考 attention 下，训练流程和元数据仍须与旧版本精确一致。
     case.assertEqual(original_payload["train_settings"].pop("precision"), "auto")
+    for name in ("grad_accum_steps", "max_steps", "max_tokens", "gradient_checkpointing",
+                 "optimizer_decay_groups", "adam_betas", "fused_adamw", "eval_batch_size",
+                 "eval_every_steps", "eval_max_batches", "save_every_steps"):
+        original_payload["train_settings"].pop(name, None)
+    for name in ("global_step", "trained_tokens", "epoch_complete", "epoch_progress", "last_step_eval"):
+        original_payload.pop(name, None)
     assert_nested_equal(case, expected, original_payload)
 
 
@@ -113,7 +119,13 @@ class WorkflowTests(unittest.TestCase):
             with mock.patch("sft_gpt.pre_training.trainer.DEFAULT_VOCAB", root / "vocab.json"), \
                     mock.patch("builtins.print"):
                 self.original.main(arguments + ["--output-dir", str(old_dir)])
-                main(["preTrain", "--poetry"] + arguments[1:] + ["--output-dir", str(new_dir)])
+                # Explicit old recipe: production defaults now target the 100M model.
+                legacy_recipe = ["--grad-accum-steps", "1", "--max-steps", "0",
+                                 "--lr", "0.002", "--weight-decay", "0.01",
+                                 "--label-smoothing", "0.1", "--adam-beta2", "0.999",
+                                 "--no-optimizer-decay-groups", "--eval-batch-size", "1",
+                                 "--eval-every-steps", "0", "--save-every-steps", "0"]
+                main(["preTrain", "--poetry"] + arguments[1:] + legacy_recipe + ["--output-dir", str(new_dir)])
                 for name in ("best.pt", "last.pt"):
                     old = torch.load(old_dir / name, weights_only=False)
                     new = torch.load(new_dir / name, weights_only=False)

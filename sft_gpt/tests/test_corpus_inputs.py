@@ -376,15 +376,15 @@ class CorpusInputsTests(unittest.TestCase):
             for text in validation_texts:
                 self.assertEqual(tokenizer.decode(tokenizer.encode(text)), text)
                 self.assertNotIn(tokenizer.unk, tokenizer.encode(text))
-            # New CLI inputs intentionally do not exist. Any attempt to resolve,
-            # read or rebuild a tokenizer on resume must fail immediately.
+            # No new inputs are supplied. Any attempt to resolve, read or rebuild
+            # a tokenizer on resume must still fail immediately.
             with mock.patch("sft_gpt.cli.resolve_data_paths", side_effect=AssertionError("resume resolved inputs")) as resolve, \
                     mock.patch("sft_gpt.pre_training.trainer.load_train_eval_texts",
                                side_effect=AssertionError("resume loaded inputs")) as split_loader, \
                     mock.patch.object(data, "load_texts", side_effect=AssertionError("resume reread corpus")) as text_loader, \
                     mock.patch.object(HybridTokenizer, "build", side_effect=AssertionError("resume rebuilt tokenizer")) as build:
                 main(["preTrain", "--resume", str(output / "last.pt"), "--epochs", "2",
-                      "--eval-data", str(self.root / "missing-eval"), "--tokenizer", "char",
+                      "--tokenizer", "char",
                       "--seq-len", "3", "--device", "cpu", "--output-dir", str(output)])
                 resolve.assert_not_called()
                 split_loader.assert_not_called()

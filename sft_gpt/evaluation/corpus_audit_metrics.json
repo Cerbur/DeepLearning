@@ -1,0 +1,877 @@
+{
+  "method": {
+    "seed": 20261020,
+    "normalization": "NFKC+casefold+keep isalnum; diagnostic only, never edits corpus",
+    "near_duplicate": "all-pairs prefix join on unique normalized docs >=30 chars; character 4-gram set Jaccard >=0.8",
+    "keyword_flags": "heuristic review queues; NOT validated defect rates",
+    "manual_sample": "6 uniform rows per train file, fixed seed, 60 total"
+  },
+  "splits": {
+    "train": {
+      "documents": 50000,
+      "malformed": [],
+      "empty_docs": 0,
+      "bytes": 7899551,
+      "chars": 2499281,
+      "char_lengths": {
+        "min": 8,
+        "p10": 21,
+        "p50": 41,
+        "p90": 89,
+        "p95": 114,
+        "p99": 180,
+        "max": 567,
+        "mean": 49.986
+      },
+      "turn_count": {
+        "min": 3,
+        "p10": 3,
+        "p50": 3,
+        "p90": 5,
+        "p95": 7,
+        "p99": 10,
+        "max": 31,
+        "mean": 3.857
+      },
+      "turn_lengths": {
+        "min": 1,
+        "p10": 4,
+        "p50": 9,
+        "p90": 23,
+        "p95": 31,
+        "p99": 55,
+        "max": 157,
+        "mean": 12.217
+      },
+      "turns_total": 192874,
+      "turns_le_5_chars": 45531,
+      "docs_lt_30_chars": 13719,
+      "docs_ge_256_chars": 95,
+      "docs_ge_512_chars": 2,
+      "cjk_char_fraction": 0.8470344070954806,
+      "ascii_alpha_fraction": 0.0020833991856057804,
+      "newline_fraction": 0.05716604095337819,
+      "unique_chars": 4637,
+      "raw_duplicate_extra_docs": 0,
+      "normalized_duplicate_extra_docs": 0,
+      "changed_by_current_cleaner": 0,
+      "flags": {
+        "explicit_abuse_keyword": 0,
+        "insult_context_review_only": 257,
+        "sexual_keyword_review_only": 13,
+        "ad_keyword_review_only": 73,
+        "url": 0,
+        "email": 0,
+        "mainland_mobile_candidate": 29,
+        "html_candidate": 0,
+        "replacement_char": 0,
+        "control": 0,
+        "repeat_char_6plus": 1512,
+        "repeat_phrase_4plus": 597,
+        "weibo_emoticon": 0
+      },
+      "most_common_turns": [
+        [
+          "哈哈",
+          292
+        ],
+        [
+          "谢谢",
+          267
+        ],
+        [
+          "嗯嗯",
+          251
+        ],
+        [
+          "晚安",
+          212
+        ],
+        [
+          "好的",
+          203
+        ],
+        [
+          "好吧",
+          176
+        ],
+        [
+          "是的",
+          174
+        ],
+        [
+          "加油",
+          154
+        ],
+        [
+          "是啊",
+          137
+        ],
+        [
+          "对啊",
+          92
+        ],
+        [
+          "你猜",
+          88
+        ],
+        [
+          "生日快乐",
+          86
+        ],
+        [
+          "没有",
+          85
+        ],
+        [
+          "呵呵",
+          83
+        ],
+        [
+          "我也是",
+          67
+        ],
+        [
+          "嘻嘻",
+          66
+        ],
+        [
+          "哦哦",
+          66
+        ],
+        [
+          "嘿嘿",
+          64
+        ],
+        [
+          "早安",
+          60
+        ],
+        [
+          "可以",
+          58
+        ]
+      ]
+    },
+    "eval": {
+      "documents": 2000,
+      "malformed": [],
+      "empty_docs": 0,
+      "bytes": 315433,
+      "chars": 99782,
+      "char_lengths": {
+        "min": 9,
+        "p10": 21,
+        "p50": 41,
+        "p90": 92,
+        "p95": 114,
+        "p99": 162,
+        "max": 326,
+        "mean": 49.891
+      },
+      "turn_count": {
+        "min": 3,
+        "p10": 3,
+        "p50": 3,
+        "p90": 5,
+        "p95": 6,
+        "p99": 10,
+        "max": 15,
+        "mean": 3.825
+      },
+      "turn_lengths": {
+        "min": 1,
+        "p10": 4,
+        "p50": 9,
+        "p90": 24,
+        "p95": 32,
+        "p99": 55,
+        "max": 139,
+        "mean": 12.305
+      },
+      "turns_total": 7650,
+      "turns_le_5_chars": 1776,
+      "docs_lt_30_chars": 535,
+      "docs_ge_256_chars": 2,
+      "docs_ge_512_chars": 0,
+      "cjk_char_fraction": 0.8458339179411116,
+      "ascii_alpha_fraction": 0.0024753963640736804,
+      "newline_fraction": 0.05662343909723196,
+      "unique_chars": 2673,
+      "raw_duplicate_extra_docs": 0,
+      "normalized_duplicate_extra_docs": 0,
+      "changed_by_current_cleaner": 0,
+      "flags": {
+        "explicit_abuse_keyword": 0,
+        "insult_context_review_only": 7,
+        "sexual_keyword_review_only": 0,
+        "ad_keyword_review_only": 2,
+        "url": 0,
+        "email": 0,
+        "mainland_mobile_candidate": 1,
+        "html_candidate": 0,
+        "replacement_char": 0,
+        "control": 0,
+        "repeat_char_6plus": 62,
+        "repeat_phrase_4plus": 23,
+        "weibo_emoticon": 0
+      },
+      "most_common_turns": [
+        [
+          "哈哈",
+          12
+        ],
+        [
+          "晚安",
+          11
+        ],
+        [
+          "嗯嗯",
+          10
+        ],
+        [
+          "谢谢",
+          8
+        ],
+        [
+          "好的",
+          7
+        ],
+        [
+          "呵呵",
+          7
+        ],
+        [
+          "是的",
+          6
+        ],
+        [
+          "你猜",
+          5
+        ],
+        [
+          "加油",
+          5
+        ],
+        [
+          "好哒",
+          4
+        ],
+        [
+          "是啊",
+          4
+        ],
+        [
+          "哦哦",
+          4
+        ],
+        [
+          "么么哒",
+          4
+        ],
+        [
+          "好看",
+          3
+        ],
+        [
+          "谢谢啦",
+          3
+        ],
+        [
+          "嘿嘿",
+          3
+        ],
+        [
+          "好滴",
+          3
+        ],
+        [
+          "我也是",
+          3
+        ],
+        [
+          "哼哼",
+          3
+        ],
+        [
+          "嗯呐",
+          3
+        ]
+      ]
+    }
+  },
+  "files": [
+    {
+      "path": ".data/corpus/train/lccc_part_001.jsonl",
+      "bytes": 785953,
+      "rows": 5000,
+      "sha256": "10cefbe3985e1e2c912b0eb60a03a280ec32bd9dd3201631293a620336d9f2cf"
+    },
+    {
+      "path": ".data/corpus/train/lccc_part_002.jsonl",
+      "bytes": 789558,
+      "rows": 5000,
+      "sha256": "8d8be82426775616f6c3c4c643fe31832fd673cd26a7ea2852357c0c5662e768"
+    },
+    {
+      "path": ".data/corpus/train/lccc_part_003.jsonl",
+      "bytes": 781069,
+      "rows": 5000,
+      "sha256": "7973662632958e2afc47f8f4f751c0682ae2bcc8598baff073efdfdbaba6df83"
+    },
+    {
+      "path": ".data/corpus/train/lccc_part_004.jsonl",
+      "bytes": 790741,
+      "rows": 5000,
+      "sha256": "5040c8cccac99854c801fd1ae582c54d4b03b8ae5345fd2b89558d81843fbef5"
+    },
+    {
+      "path": ".data/corpus/train/lccc_part_005.jsonl",
+      "bytes": 793156,
+      "rows": 5000,
+      "sha256": "d170575c3f38c2c9fee36b6df7139f8128d6848c56b7356be05d1bc44355cf27"
+    },
+    {
+      "path": ".data/corpus/train/lccc_part_006.jsonl",
+      "bytes": 800993,
+      "rows": 5000,
+      "sha256": "1bf6e7e3a66e0280c8f5a84975bb1f9b0876fb1b3bcd6db35e36ce53a0637454"
+    },
+    {
+      "path": ".data/corpus/train/lccc_part_007.jsonl",
+      "bytes": 797565,
+      "rows": 5000,
+      "sha256": "2f32c2cba773bfb1129014edde0f30aa69f1cbd1eb7cff394b745b924c7c2fb6"
+    },
+    {
+      "path": ".data/corpus/train/lccc_part_008.jsonl",
+      "bytes": 785399,
+      "rows": 5000,
+      "sha256": "c625b081080ca80e21d7bc5d65c50426c34a9e80e2e515cd92b770f7355f5e89"
+    },
+    {
+      "path": ".data/corpus/train/lccc_part_009.jsonl",
+      "bytes": 790654,
+      "rows": 5000,
+      "sha256": "33066dfe4e7b0630c110082ce5373f9648f56756060c80dbf40ae7c46799a6ae"
+    },
+    {
+      "path": ".data/corpus/train/lccc_part_010.jsonl",
+      "bytes": 784463,
+      "rows": 5000,
+      "sha256": "9557a561e3b9c62ac471b6f6172a1c5691ec43a3ce9093023021f7523490f683"
+    },
+    {
+      "path": ".data/corpus/eval/lccc_part_001.jsonl",
+      "bytes": 315433,
+      "rows": 2000,
+      "sha256": "937c641ecd645ae8df26abf1e0743f8dbb8b1b3d15dfcd22c3dc06fd7e9fe826"
+    }
+  ],
+  "cross_split": {
+    "raw_overlap_eval_docs": 0,
+    "normalized_overlap_eval_docs": 0,
+    "eval_turns_ge15": 1740,
+    "eval_turns_ge15_seen_in_train": 11,
+    "eval_docs_with_shared_turn_ge15": 9
+  },
+  "tokenization": {
+    "basis": "fresh default hybrid min_freq=2 max_vocab=8192, calculated from current train only",
+    "vocab_size": 4314,
+    "train": {
+      "tokens_including_bos_eos": 2600277,
+      "tokens_per_doc": {
+        "min": 10,
+        "p10": 23,
+        "p50": 43,
+        "p90": 91,
+        "p95": 116,
+        "p99": 182,
+        "max": 569,
+        "mean": 52.006
+      },
+      "docs_ge512_tokens": 2,
+      "packed_rows_at_512": 5079
+    },
+    "eval": {
+      "tokens_including_bos_eos": 103910,
+      "tokens_per_doc": {
+        "min": 11,
+        "p10": 23,
+        "p50": 43,
+        "p90": 94,
+        "p95": 116,
+        "p99": 164,
+        "max": 330,
+        "mean": 51.955
+      },
+      "docs_ge512_tokens": 0,
+      "packed_rows_at_512": 203
+    }
+  },
+  "near_duplicates": {
+    "eligible_unique_normalized_docs": 32055,
+    "candidate_pairs_verified": 36,
+    "affected_unique_normalized_docs": 17,
+    "train_affected_docs": 17,
+    "eval_docs_in_cross_split_pairs": 0,
+    "example_pairs": [
+      {
+        "jaccard": 0.8,
+        "cross_split": false,
+        "a": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_009.jsonl",
+          "line": 4833,
+          "text": "有没有觉得上过床之后更加忘不掉\n曾经身体都进的去的人，现在连空间都进不去了\n这句话好直白"
+        },
+        "b": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_003.jsonl",
+          "line": 1851,
+          "text": "有没有觉得上过床之后更加忘不掉\n曾经身体都进的去的人，现在连空间都进不去了\n扎心"
+        }
+      },
+      {
+        "jaccard": 0.8809523809523809,
+        "cross_split": false,
+        "a": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_007.jsonl",
+          "line": 2094,
+          "text": "我这里多10爱国、8友善、6敬业、5和谐，需要的来找我拿\n多三张敬业，缺一张爱国两张富强，求换\n跟你换"
+        },
+        "b": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_010.jsonl",
+          "line": 711,
+          "text": "我这里多10爱国、8友善、6敬业、5和谐，需要的来找我拿\n多三张敬业，缺一张爱国两张富强，求换\n可换"
+        }
+      },
+      {
+        "jaccard": 0.8125,
+        "cross_split": false,
+        "a": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_002.jsonl",
+          "line": 4747,
+          "text": "和你们讲个笑话，哈尔滨的出租车\n兄弟，你这个不好笑，我给你讲一个，你媳妇是个私家车，哈哈哈，好笑吧\n东北人素质高"
+        },
+        "b": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_006.jsonl",
+          "line": 2368,
+          "text": "和你们讲个笑话，哈尔滨的出租车\n兄弟，你这个不好笑，我给你讲一个，你媳妇是个私家车，哈哈哈，好笑吧\n笑死了"
+        }
+      },
+      {
+        "jaccard": 0.8679245283018868,
+        "cross_split": false,
+        "a": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_009.jsonl",
+          "line": 3878,
+          "text": "失误就是失误了，没任何借口和理由。对不起让各位和韬韬失望了，之后一定给你们更好的舞台！\n看下集！我们不解释哈哈\n看下集好哒"
+        },
+        "b": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_008.jsonl",
+          "line": 620,
+          "text": "失误就是失误了，没任何借口和理由。对不起让各位和韬韬失望了，之后一定给你们更好的舞台！\n看下集！我们不解释哈哈\n没错！"
+        }
+      },
+      {
+        "jaccard": 0.8,
+        "cross_split": false,
+        "a": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_002.jsonl",
+          "line": 3752,
+          "text": "都说是在维护升级，大方的承认因为什么原因的勇气都没有，他们在害怕什么？\n是啊，原因大家都知道，大方承认多好。\n我不知道，来说说吧"
+        },
+        "b": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_002.jsonl",
+          "line": 4268,
+          "text": "都说是在维护升级，大方的承认因为什么原因的勇气都没有，他们在害怕什么？\n是啊，原因大家都知道，大方承认多好。\n啥原因"
+        }
+      },
+      {
+        "jaccard": 0.8363636363636363,
+        "cross_split": false,
+        "a": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_009.jsonl",
+          "line": 4999,
+          "text": "失误就是失误了，没任何借口和理由。对不起让各位和韬韬失望了，之后一定给你们更好的舞台！\n看下集！我们不解释哈哈\n你太抢戏一天天"
+        },
+        "b": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_008.jsonl",
+          "line": 620,
+          "text": "失误就是失误了，没任何借口和理由。对不起让各位和韬韬失望了，之后一定给你们更好的舞台！\n看下集！我们不解释哈哈\n没错！"
+        }
+      },
+      {
+        "jaccard": 0.9629629629629629,
+        "cross_split": false,
+        "a": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_008.jsonl",
+          "line": 3209,
+          "text": "儿子今年22岁，阳光帅气，知冷知热，感觉比他爹强多少倍都不止。看着他，就觉得这20多年来的辛苦付出都是值得的。\n儿子今年22岁，阳光帅气，知冷知热，感觉比他爹强多少倍都不止。看着他，就觉得这20多年来的辛苦付出白白便宜了别人家的闺女，哦，还有他丈母娘！\n这心态容易有婆媳矛盾哈\n哈哈哈哈哈哈哈哈哈哈哈哈！！"
+        },
+        "b": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_005.jsonl",
+          "line": 1543,
+          "text": "儿子今年22岁，阳光帅气，知冷知热，感觉比他爹强多少倍都不止。看着他，就觉得这20多年来的辛苦付出都是值得的。\n儿子今年22岁，阳光帅气，知冷知热，感觉比他爹强多少倍都不止。看着他，就觉得这20多年来的辛苦付出白白便宜了别人家的闺女，哦，还有他丈母娘！\n这心态容易有婆媳矛盾哈"
+        }
+      },
+      {
+        "jaccard": 0.9494949494949495,
+        "cross_split": false,
+        "a": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_006.jsonl",
+          "line": 1387,
+          "text": "最后一句能不能再假点，哈哈~~我今年过年都懒得买衣服了呢~~哎不知是好是坏啊！\n还是你懂我。支持你买小红衣服，再不浪就错过青春了。\n浪不起来，有心无力啦！~~嘿嘿~~你假期都干嘛呢，我无聊死了都~\n混吃喝，等过年\n过年都过的没劲了！我想出去玩\n多叫几个人"
+        },
+        "b": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_003.jsonl",
+          "line": 4528,
+          "text": "最后一句能不能再假点，哈哈~~我今年过年都懒得买衣服了呢~~哎不知是好是坏啊！\n还是你懂我。支持你买小红衣服，再不浪就错过青春了。\n浪不起来，有心无力啦！~~嘿嘿~~你假期都干嘛呢，我无聊死了都~\n混吃喝，等过年\n过年都过的没劲了！我想出去玩"
+        }
+      },
+      {
+        "jaccard": 0.9612403100775194,
+        "cross_split": false,
+        "a": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_004.jsonl",
+          "line": 269,
+          "text": "军训结束，该下雨了\n但愿全省出太阳\n那是不可能滴。中秋打算去哪呢？\n中秋表示。我的小伙伴们只放一天。我是三天。。。他们都过不来。。。我应该会去一下外面。。。舍友全走。顺便表示一下今晚我有三个聚餐\n三个聚餐，撑死你\n下你党下莫伤心死。。。\n你想多了表示下午没课，晚上又没饭吃了中午应该吃饱点。你是撑死的，我是饿死的\n有人没得吃。。。"
+        },
+        "b": {
+          "split": "train",
+          "file": ".data/corpus/train/lccc_part_009.jsonl",
+          "line": 3638,
+          "text": "军训结束，该下雨了\n但愿全省出太阳\n那是不可能滴。中秋打算去哪呢？\n中秋表示。我的小伙伴们只放一天。我是三天。。。他们都过不来。。。我应该会去一下外面。。。舍友全走。顺便表示一下今晚我有三个聚餐\n三个聚餐，撑死你\n下你党下莫伤心死。。。\n你想多了表示下午没课，晚上又没饭吃了中午应该吃饱点。你是撑死的，我是饿死的"
+        }
+      }
+    ]
+  },
+  "flag_examples": {
+    "train:insult_context_review_only": [
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 7,
+        "text": "有你这样思想的才是拉低了整个国家的文化素质水平，拖国家后腿儿的废人！精神贫瘠最被人所看不起！\n说的这么冠冕堂皇的，不就是骂了你们河南人么\n来来来，让我们看看你是有多贵？\n用过的厕纸能有多贵？"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 21,
+        "text": "漠要不和狼抱团，她的文那么弱智谁看\n没看过她的文\n高中的时候看过她的船直，后来没怎么看到她写文，后来复出以后再写，越来越弱智，作话里卖萌的字数比正文都多，先是无语她的文笔，再是讨厌她的人品。炫富炫一切，要是她把她的心计都要来构思写文，她也不至于如此讨厌"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 129,
+        "text": "我不爱打麻将，我家邻居就开麻将室的，自动麻将\n我家也自动麻将我们打很小垃圾胡最简单的好玩！下次来吧，不一定非得麻将可以做饭呀\n昨天你们还有谁啊？你做饭的吗？哈哈\n昨天外面吃的！前天做饭啦！就几个好朋友\n下次做饭叫我，我蹭饭，哈哈\n你得帮忙！以后周末空了和小杨一起来玩\n我不动手，我可以指导，哈哈\n真是懒人！不过第一次就算了\n还是你好，哈哈哈\n一直都好的"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 168,
+        "text": "垃圾\n小心我喝多了打你\n您那酒量喝下一个长江都没毛病吧\n别瞎说低调低调\n大佬求带"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 189,
+        "text": "打牌啊、、\n你克我啊！\n我怎么会克你。我现在是全班打的最垃圾的人啊。"
+      }
+    ],
+    "train:repeat_char_6plus": [
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 15,
+        "text": "你也喜欢姗姗啊？\n他可是见过姗本人的，好像见过2次了吧~啊啊啊啊~羡慕！\n我也想见一见噢。可是没有这个可能啦。你怎么知道他见过啊？\n【第四十九天：姗峰姗盟海誓】.........为神马不直接问我呢.....晕倒\n哈哈，你资料说你是北京什么后援会会长，我不信啦"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 16,
+        "text": "我好冷\n我在寝室也好冷，一出来与太阳肩并肩\n哈哈哈哈哈哈哈哈！与太阳肩并肩当太阳的后裔"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 85,
+        "text": "有了小的你就知道你也睡不着因为他们早上起来都好吵\n哈哈哈哈哈哈哈哈跑到床头把你被子掀开说姐姐快起床\n小的时候就是这样还会直接进来和你开灯玩\n再大一点你就会觉得特别好啦羡慕\n熬到五岁了现在也闹"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 91,
+        "text": "太感谢你了小翟！今天家里准备好吃的了~改天找你去~看到过你做菜的照片，一定做的很好吃，我一定要吃到！\n必须的，你吃不到那可这是稀罕，哈哈哈哈哈哈哈\n馋了~"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 96,
+        "text": "我给我老婆天天洗澡，她给我天天………………嘿嘿嘿，害羞不好意思说。\n你太污了，已经举报\n我洗手咋了，你不洗手的么！什么玩意就举报，哼"
+      }
+    ],
+    "train:repeat_phrase_4plus": [
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 15,
+        "text": "你也喜欢姗姗啊？\n他可是见过姗本人的，好像见过2次了吧~啊啊啊啊~羡慕！\n我也想见一见噢。可是没有这个可能啦。你怎么知道他见过啊？\n【第四十九天：姗峰姗盟海誓】.........为神马不直接问我呢.....晕倒\n哈哈，你资料说你是北京什么后援会会长，我不信啦"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 16,
+        "text": "我好冷\n我在寝室也好冷，一出来与太阳肩并肩\n哈哈哈哈哈哈哈哈！与太阳肩并肩当太阳的后裔"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 85,
+        "text": "有了小的你就知道你也睡不着因为他们早上起来都好吵\n哈哈哈哈哈哈哈哈跑到床头把你被子掀开说姐姐快起床\n小的时候就是这样还会直接进来和你开灯玩\n再大一点你就会觉得特别好啦羡慕\n熬到五岁了现在也闹"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 152,
+        "text": "你怕个毛装什么矜持\n我给你说美院小哥哥颜值还可以哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈\n那你就上！！！废话那么多干嘛等我再回来带过来一起吃饭就可以啦\n大哥你是来搞笑的吗哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈哈"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 163,
+        "text": "我是好人\n对不起你是个好人2333333333333333\n我知道我是"
+      }
+    ],
+    "train:sexual_keyword_review_only": [
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 423,
+        "text": "目前所有勾搭我的我都告知……\n然后全都吓跑了吗\n就算他们敢……我还不敢呢……\n你为啥不敢。。\n再说！有必要害人么……\n为啥要约炮\n我也没有约啊！约谁啊！\n不然你怎么染上的。。"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 3846,
+        "text": "帅哥！要约会吗？\n要约炮\n好吧！来！"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 4932,
+        "text": "你变帅了\n我也觉得帅了…哈哈哈\n嗯真的帅了好喜欢\n喜欢咋办呢\n约炮"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_002.jsonl",
+        "line": 3692,
+        "text": "沸腾心中已熄灭的火这样走下去也不是不可\n没有梦想何必远方\n其实很简单其实很自然其实并不难是你太悲观\n过了爱做梦的年纪轰轰烈烈不如平静\n该约炮的年纪却选择相信爱情"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_002.jsonl",
+        "line": 3890,
+        "text": "求软件名称！\n叫探探约炮神器\n那你在上面约过没？\n大叔就是在上面约你不过要看你的颜值怎么样才能看约不约得到了"
+      }
+    ],
+    "train:ad_keyword_review_only": [
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 660,
+        "text": "蓝衣服蓝镜片莫名很搭很好看\n山下大衣是红的山上是蓝的\n我还以为是你自己的衣服还想问你什么牌子的\n山顶200，要知道给你代购一件\n你的好意我心领了"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 1191,
+        "text": "你在广州呀\n老板有事您说话\n没事\n还有假包假鞋\n代购俩鲜肉\n你看大外甥鲜不鲜"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 1414,
+        "text": "嗯跟着你男票，方便面不是问题\n我男票以后要是天天给我吃方便面，看我打不打他\n你男票在你回去后又买了这堆送人的\n我男票莫不是个代购吧"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 1961,
+        "text": "蹄蹄开的啥店\n就护肤品代购。\n店叫啥关注下"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 2283,
+        "text": "为梦想努力，为飞行加油\n今年厦航还有招聘吗\n我也在等\n看下半年有没有\n我也是！就跟着厦航走！\n我也是特喜欢厦航北京这一站你可以去呀\n我这次去不了，家里有事情，你要去吗\n不去我也是有其他事情冲突下半年应该会有亲\n以后说不定能碰到哟"
+      }
+    ],
+    "train:mainland_mobile_candidate": [
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 1390,
+        "text": "告诉自己钱多任性\n任性的话可以编辑短信“请你吃饭”到<PHONE_REDACTED>\n哈哈哈哈哈这波可以有"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 1963,
+        "text": "你好，现在点2：30前\n好的，来1杯大杯红牛，少糖，加夜猫。1杯中的炭培乌龙。1杯中杯奶盖摩卡。电话<PHONE_REDACTED>九二路中旅总台\n最近没有摩卡\n1杯红牛，2杯炭焙"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_001.jsonl",
+        "line": 2696,
+        "text": "我给你发短信你都不回我！！！\n我换了号码得！你号码好多？\n现在是<PHONE_REDACTED>.但是我可能也要换啊，你换号码都不给我说，太桑心了\n<PHONE_REDACTED>\n好难记！你不是给我打过电话了吗？"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_002.jsonl",
+        "line": 2394,
+        "text": "用左脸打右脸\n难啊你回家了。<PHONE_REDACTED>新手机号\n过几天去五连找你玩可好？"
+      },
+      {
+        "split": "train",
+        "file": ".data/corpus/train/lccc_part_003.jsonl",
+        "line": 4486,
+        "text": "联系方式私我一下\n<PHONE_REDACTED>\n多谢多谢"
+      }
+    ],
+    "eval:repeat_char_6plus": [
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 44,
+        "text": "为什么我好喜欢你的刘海！\n哈哈哈哈哈哈哈剪同款！\n我以前剪过还挺满意"
+      },
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 84,
+        "text": "可爱可爱\n想当闺女养\n以后自己当老师了每个女孩都是你闺女\n就是想当闺女的就那么几个\n哈哈哈哈哈哈没有想养的闺儿吗\n有的！又帅气又聪明又懂事！\n做梦吧你"
+      },
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 86,
+        "text": "尊重一下早上起来吃不上早饭的人吧\n哈哈哈哈哈哈我昨晚好像梦到你了来吧来我家给你吃！\n梦见我什么了！\n梦见你长胖了哈哈"
+      },
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 107,
+        "text": "美丽\n我其实手滑了我还没p完图啊！字还没写啊就发出去了\n哈哈哈哈哈哈哈哈没有一点点防备"
+      },
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 114,
+        "text": "晕死！！！！我短信坏！！！！！！谁也收不到我短信了！！！！\n也可能是我的有问题了吧\n是我的问题我去弄下先\n我周末两天在南宁，给省公司讲课，客串一把老师，哈哈"
+      }
+    ],
+    "eval:repeat_phrase_4plus": [
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 107,
+        "text": "美丽\n我其实手滑了我还没p完图啊！字还没写啊就发出去了\n哈哈哈哈哈哈哈哈没有一点点防备"
+      },
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 162,
+        "text": "哈哈哈，嘴上说每天爱他多一点，为什么不爱现在的照片，在补旧照23333333333333\n哈哈哈不要轻易说出真相\n对不起，没忍住"
+      },
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 329,
+        "text": "你是不是瘦了？\n有吗\n感觉脸上肉都少了，你跟以前照片对比看看，明显脸小了\n哈哈哈我是没啥感觉，可能发型也有关系，不过脸是比大学那阵子肉少了哈哈\n五官更秀气了哈哈哈哈哈哈哈哈"
+      },
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 551,
+        "text": "我是K开不了口\n我可气死了\n哈哈哈哈哈哈哈哈可太委屈了\n本人今日的推歌失败"
+      },
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 688,
+        "text": "你大三了？\n系啊，你5知啊？？？\n现在才知，我以为B栋的都是大二的\n不是啊，有大二也有大三啊。。。。。。。。"
+      }
+    ],
+    "eval:insult_context_review_only": [
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 248,
+        "text": "一楼说的漂亮！\n什么心态？你这死胖子\n我这是壮！\n呵呵"
+      },
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 380,
+        "text": "我记住了没办法当时周俊要我们背书我都是前几个背完的呢记忆力好没办法诶\n臭不要脸\n没办法记忆力太好\n警察叔叔，就是他，这个人不要脸"
+      },
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 526,
+        "text": "垃圾皮肤\n你再说一句？\n垃圾欺负"
+      },
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 778,
+        "text": "蛀虫你好哇，我是花花\n镜花水月？？？\n你个垃圾，都不敢进群玩耍了"
+      },
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 854,
+        "text": "今天不蹦迪，明天变垃圾\n我撑得今天蹦不了\n我饿的没劲儿蹦"
+      }
+    ],
+    "eval:ad_keyword_review_only": [
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 707,
+        "text": "两件恶魔熊不包邮对吧\n对，前20的话包\n好的"
+      },
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 1071,
+        "text": "求这个店主的店\n这么老的团居然还有人回，店主小样店不开了，还开着专柜正装代购店，价格没有优势，还要吗？\n小样都没卖了么？好心塞"
+      }
+    ],
+    "eval:mainland_mobile_candidate": [
+      {
+        "split": "eval",
+        "file": ".data/corpus/eval/lccc_part_001.jsonl",
+        "line": 1640,
+        "text": "手机换号也不说一声\n阿。？我这号都用了一年多了啊！！去年不就是这号嘛\n我给你打电话你没接啊，还是湖南的？\n阿？东营得号阿。。。我哪有过湖南的号！！！<PHONE_REDACTED>"
+      }
+    ]
+  }
+}

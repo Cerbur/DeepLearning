@@ -1,4 +1,4 @@
-"""锁定模型结构/初始化及未改动源码；允许 SDPA 与显式混合精度边界。"""
+"""锁定模型结构/初始化；允许 SDPA、精度边界和运行时梯度检查点。"""
 import ast
 import importlib.util
 import inspect
@@ -47,8 +47,8 @@ class ModelPreservationTests(unittest.TestCase):
                                           for line in original_lines)
                     self.assertIn(commented, module_source)
                     continue
-                if name in {"RMSNorm", "RotaryPositionalEmbedding", "GPTBlock", "SwiGLU"}:
-                    # 只允许这些模块修改 forward 的精度边界；参数/缓冲初始化必须不变。
+                if name in {"RMSNorm", "RotaryPositionalEmbedding", "GPTBlock", "SwiGLU", "GPTDecoder"}:
+                    # 允许 forward 的精度边界/梯度检查点；参数/缓冲初始化必须不变。
                     migrated_node = ast.parse(migrated).body[0]
                     original_init = next(n for n in node.body if isinstance(n, ast.FunctionDef)
                                          and n.name == "__init__")

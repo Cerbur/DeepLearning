@@ -9,6 +9,7 @@ import argparse
 import codecs
 from contextlib import contextmanager
 from dataclasses import dataclass
+import gzip
 import json
 import math
 import os
@@ -18,21 +19,26 @@ import re
 import tempfile
 from typing import BinaryIO, Iterator
 import urllib.request
+from urllib.parse import urlsplit
 
 if __package__:
     from .cleaning import clean_corpus_text
 else:
     from cleaning import clean_corpus_text
 
-URL = "https://hf-mirror.com/datasets/pleisto/wikipedia-cn-20230720-filtered/resolve/main/wikipedia-cn-20230720-filtered.json"
-TARGET_DIR = Path(".data/corpus")
-TARGET_DOCS = 50000
-MIN_DOC_LEN = 50
+# This is the train archive referenced by thu-coai/lccc's official HF loader.
+# Only its training split is used; upstream validation/test remain untouched.
+URL = "https://hf-mirror.com/datasets/silver/lccc/resolve/main/lccc_base_train.jsonl.gz"
+TARGET_DIR = Path(__file__).resolve().parents[1] / ".data" / "corpus"
+TRAIN_DOCS = 50000
+EVAL_DOCS = 2000
+TARGET_DOCS = TRAIN_DOCS + EVAL_DOCS
+MIN_DOC_LEN = 2
 MAX_DOCS_PER_FILE = 5000
-EVAL_RATIO = 0.1
+EVAL_RATIO = EVAL_DOCS / TARGET_DOCS
 SEED = 42
 MANIFEST = ".download_corpus_manifest.json"
-_GENERATED = re.compile(r"(?:train|eval)/wiki_zh_part_[0-9]{3,}\.jsonl\Z")
+_GENERATED = re.compile(r"(?:train|eval)/(?:wiki_zh|lccc)_part_[0-9]{3,}\.jsonl\Z")
 
 
 @dataclass(frozen=True)
@@ -137,17 +143,39 @@ def _iter_jsonl(stream: BinaryIO, chunk_size: int) -> Iterator[object]:
 
 
 @contextmanager
+def _record_stream(stream: BinaryIO, name: str, chunk_size: int):
+    """Read JSON/JSONL, optionally gzip, without downloading a full archive."""
+    compressed = name.lower().endswith(".gz")
+    plain_name = name[:-3] if compressed else name
+    reader = _iter_jsonl if plain_name.lower().endswith(".jsonl") else iter_json_records
+    if compressed:
+        with gzip.GzipFile(fileobj=stream, mode="rb") as decoded:
+            iterator = reader(decoded, chunk_size)
+            try:
+                yield iterator
+            finally:
+                iterator.close()
+    else:
+        iterator = reader(stream, chunk_size)
+        try:
+            yield iterator
+        finally:
+            iterator.close()
+
+
+@contextmanager
 def _source_records(input_path: Path | None, output_dir: Path, url: str, chunk_size: int):
     if input_path is None:
         request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(request, timeout=60) as response:
-            yield iter_json_records(response, chunk_size)
+            with _record_stream(response, urlsplit(url).path, chunk_size) as records:
+                yield records
         return
     if input_path.is_dir():
         same_root = input_path.resolve() == output_dir.resolve()
         files = sorted(
             (path for path in input_path.rglob("*")
-             if path.is_file() and path.suffix.lower() in (".json", ".jsonl")
+             if path.is_file() and path.name.lower().endswith((".json", ".jsonl", ".json.gz", ".jsonl.gz"))
              and not any(part.startswith(".") for part in path.relative_to(input_path).parts)
              and not (same_root and path.relative_to(input_path).parts[0] in ("train", "eval"))),
             key=lambda path: path.relative_to(input_path).as_posix(),
@@ -162,8 +190,8 @@ def _source_records(input_path: Path | None, output_dir: Path, url: str, chunk_s
     def records():
         for path in files:
             with path.open("rb") as stream:
-                reader = _iter_jsonl if path.suffix.lower() == ".jsonl" else iter_json_records
-                yield from reader(stream, chunk_size)
+                with _record_stream(stream, path.name, chunk_size) as iterator:
+                    yield from iterator
 
     iterator = records()
     try:
@@ -172,7 +200,37 @@ def _source_records(input_path: Path | None, output_dir: Path, url: str, chunk_s
         iterator.close()
 
 
-def _clean_text(record: object, min_doc_len: int) -> str | None:
+def _dialogue_text(record: object, min_doc_len: int, tokenization: str = "word") -> str | None:
+    """LCCC JSONL contains utterance lists; HF rows may wrap them in dialog."""
+    turns = record.get("dialog") if isinstance(record, dict) else record
+    if not isinstance(turns, list) or len(turns) < 2:
+        return None
+    cleaned = []
+    for turn in turns:
+        if not isinstance(turn, str):
+            return None
+        # The default HF archive is word-segmented. Character-spaced releases
+        # need an explicit mode: ASCII word/number spacing cannot be inferred.
+        tokens = turn.split()
+        if tokenization == "character":
+            turn = "".join(tokens)
+        else:
+            turn = "".join((" " if index and re.fullmatch(r"[A-Za-z0-9]", tokens[index - 1][-1])
+                            and re.fullmatch(r"[A-Za-z0-9]", token[0]) else "") + token
+                           for index, token in enumerate(tokens))
+        content = clean_corpus_text(turn).strip()
+        if not content:
+            return None  # Keep the complete dialogue, never bridge across a bad turn.
+        cleaned.append(content)
+    if sum(len(content) for content in cleaned) < min_doc_len:
+        return None
+    # Plain causal-LM pretraining: no synthetic speaker labels or chat template.
+    return "\n".join(cleaned)
+
+
+def _clean_text(record: object, min_doc_len: int, tokenization: str = "word") -> str | None:
+    if isinstance(record, list) or isinstance(record, dict) and "dialog" in record:
+        return _dialogue_text(record, min_doc_len, tokenization)
     if not isinstance(record, dict):
         return None
     text = record.get("text", record.get("completion"))
@@ -203,13 +261,14 @@ def _owned_files(output_dir: Path) -> set[str]:
     return set(manifest["files"])
 
 
-def _publish(output_dir: Path, documents: dict[str, list[str]], max_docs_per_file: int) -> dict[str, tuple[Path, ...]]:
+def _publish(output_dir: Path, documents: dict[str, list[str]], max_docs_per_file: int,
+             metadata: dict | None = None) -> dict[str, tuple[Path, ...]]:
     """Stage first, replace only manifest-owned files, roll back on exceptions.
 
     This is not a multi-process transaction or power-loss recovery protocol.
     """
     owned = _owned_files(output_dir)
-    names = {split: tuple(f"{split}/wiki_zh_part_{index + 1:03d}.jsonl"
+    names = {split: tuple(f"{split}/lccc_part_{index + 1:03d}.jsonl"
                          for index in range((len(texts) + max_docs_per_file - 1) // max_docs_per_file))
              for split, texts in documents.items()}
     new_files = {name for paths in names.values() for name in paths}
@@ -234,7 +293,8 @@ def _publish(output_dir: Path, documents: dict[str, list[str]], max_docs_per_fil
                     for text in texts[offset:offset + max_docs_per_file]:
                         stream.write(json.dumps({"text": text}, ensure_ascii=False) + "\n")
         manifest = stage / "new" / MANIFEST
-        manifest.write_text(json.dumps({"version": 1, "files": sorted(new_files)}, indent=2) + "\n", encoding="utf-8")
+        manifest.write_text(json.dumps({"version": 1, "files": sorted(new_files),
+                                        "preparation": metadata or {}}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         backed_up = []
         installed = []
         try:
@@ -263,10 +323,12 @@ def build_corpus(input_path: str | Path | None = None, output_dir: str | Path = 
                  *, target_docs: int = TARGET_DOCS, eval_ratio: float = EVAL_RATIO,
                  max_docs_per_file: int = MAX_DOCS_PER_FILE,
                  seed: int = SEED, min_doc_len: int = MIN_DOC_LEN,
-                 url: str = URL, chunk_size: int = 1024 * 1024) -> CorpusResult:
+                 url: str = URL, chunk_size: int = 1024 * 1024,
+                 tokenization: str = "word") -> CorpusResult:
     """Collect up to target_docs valid unique documents, then publish train/eval.
 
-    Local JSON arrays/records and JSONL directories avoid network entirely.
+    LCCC utterance lists / dialog rows become newline-joined plain text.
+    Local JSON arrays/records and JSONL directories (also gzip) avoid network entirely.
     Apply the shared Chinese/ASCII-English/digits/punctuation whitelist, normalize,
     deduplicate, seeded-shuffle whole documents, then split. EOF below target_docs
     is allowed when both splits are nonempty. Each file holds at most
@@ -274,6 +336,8 @@ def build_corpus(input_path: str | Path | None = None, output_dir: str | Path = 
     Broken JSONL records are
     skipped; broken JSON arrays or UTF-8 fail safely. Inputs are never deleted.
     """
+    if tokenization not in ("word", "character"):
+        raise ValueError("tokenization must be word or character")
     sizes = (target_docs, max_docs_per_file, min_doc_len, chunk_size)
     if any(type(value) is not int or value < 1 for value in sizes):
         raise ValueError("target_docs, max_docs_per_file, min_doc_len and chunk_size must be positive integers")
@@ -286,7 +350,7 @@ def build_corpus(input_path: str | Path | None = None, output_dir: str | Path = 
     seen = set()
     with _source_records(None if input_path is None else Path(input_path), output_dir, url, chunk_size) as records:
         for record in records:
-            text = _clean_text(record, min_doc_len)
+            text = _clean_text(record, min_doc_len, tokenization)
             if text is None or text in seen:
                 continue
             seen.add(text)
@@ -300,20 +364,31 @@ def build_corpus(input_path: str | Path | None = None, output_dir: str | Path = 
                          "need at least two documents for nonempty train/eval splits")
     random.Random(seed).shuffle(texts)
     files = _publish(output_dir, {"train": texts[eval_docs:], "eval": texts[:eval_docs]},
-                     max_docs_per_file)
+                     max_docs_per_file, metadata={
+                         "source": str(Path(input_path).resolve()) if input_path is not None else url,
+                         "target_docs": target_docs, "seed": seed, "eval_ratio": eval_ratio,
+                         "tokenization": tokenization,
+                         "min_doc_len": min_doc_len, "max_docs_per_file": max_docs_per_file,
+                         "total_docs": len(texts), "train_docs": train_docs, "eval_docs": eval_docs,
+                         "dialogue_template": "plain text, newline-separated turns, no role labels",
+                     })
     return CorpusResult(len(texts), train_docs, eval_docs, files["train"], files["eval"])
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Download/reuse corpus and create whole-document train/eval shards")
-    parser.add_argument("--input", type=Path, help="Local JSON/JSONL file or directory; never downloads when supplied")
+    parser = argparse.ArgumentParser(description="Prepare CDial-GPT LCCC-base conversations and create whole-dialogue train/eval shards")
+    parser.add_argument("--input", type=Path, help="Local LCCC JSON/JSONL (optionally .gz) file or directory; no network when supplied")
     parser.add_argument("--output-dir", type=Path, default=TARGET_DIR)
-    parser.add_argument("--target-docs", type=int, default=TARGET_DOCS, help="Maximum valid unique documents (default: 50000)")
-    parser.add_argument("--eval-ratio", type=float, default=EVAL_RATIO)
+    parser.add_argument("--target-docs", type=int, default=TARGET_DOCS, help="Maximum valid unique conversations in total (default: 52000 = 50000 train + 2000 eval)")
+    parser.add_argument("--eval-ratio", type=float, default=EVAL_RATIO,
+                        help="Evaluation fraction (default: 2000/52000); split whole conversations")
     parser.add_argument("--max-docs-per-file", type=int, default=MAX_DOCS_PER_FILE,
                         help="Maximum records in each train/eval file (default: 5000); no fixed file count")
     parser.add_argument("--seed", type=int, default=SEED)
-    parser.add_argument("--min-doc-len", type=int, default=MIN_DOC_LEN)
+    parser.add_argument("--min-doc-len", type=int, default=MIN_DOC_LEN,
+                        help="Minimum total cleaned content characters (excluding role labels); default: 2")
+    parser.add_argument("--tokenization", choices=("word", "character"), default="word",
+                        help="LCCC segmentation: default word preserves ASCII word/number boundaries; character joins all tokens")
     parser.add_argument("--url", default=URL, help="Network source, used only when --input is omitted")
     return parser
 
@@ -325,8 +400,9 @@ def main(argv: list[str] | None = None) -> int:
         result = build_corpus(input_path=args.input, output_dir=args.output_dir,
                               target_docs=args.target_docs, eval_ratio=args.eval_ratio,
                               max_docs_per_file=args.max_docs_per_file,
-                              seed=args.seed, min_doc_len=args.min_doc_len, url=args.url)
-    except (OSError, ValueError) as error:
+                              seed=args.seed, min_doc_len=args.min_doc_len, url=args.url,
+                              tokenization=args.tokenization)
+    except (OSError, ValueError, EOFError) as error:
         parser.exit(1, f"Corpus preparation failed: {error}\n")
     print(f"Prepared {result.total_docs} unique documents: "
           f"train={result.train_docs} ({len(result.train_files)} shards), "

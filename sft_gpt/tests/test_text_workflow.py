@@ -113,10 +113,10 @@ class TextWorkflowTests(unittest.TestCase):
                 with mock.patch("sft_gpt.pre_training.trainer.save_checkpoint", side_effect=interrupt_after_first), \
                         self.assertRaisesRegex(RuntimeError, "test interruption"):
                     main(arguments + ["--output-dir", str(interrupted_dir)])
-                # Different CLI sequence/tokenizer/data settings must not alter saved encoding.
+                # Different CLI sequence/tokenizer settings must not alter saved encoding.
                 main(["preTrain", "--resume", str(interrupted_dir / "last.pt"), "--epochs", "2",
                       "--output-dir", str(interrupted_dir), "--seq-len", "7", "--tokenizer", "char",
-                      "--data", "does-not-exist.txt", "--device", "cpu"])
+                      "--device", "cpu"])
             _, tokenizer, full = load_checkpoint(full_dir / "last.pt", torch.device("cpu"))
             _, _, resumed = load_checkpoint(interrupted_dir / "last.pt", torch.device("cpu"))
             assert_nested_equal(self, full, resumed)

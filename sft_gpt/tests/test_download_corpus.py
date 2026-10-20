@@ -120,7 +120,7 @@ class DownloadCorpusTests(unittest.TestCase):
         with mock.patch.object(corpus.urllib.request, "urlopen", side_effect=AssertionError("network")):
             result = corpus.build_corpus(source_dir, source_dir, min_doc_len=1)
         self.assertEqual((len(result.train_files), len(result.eval_files)), (1, 1))
-        self.assertEqual((result.total_docs, result.train_docs, result.eval_docs), (200, 180, 20))
+        self.assertEqual((result.total_docs, result.train_docs, result.eval_docs), (200, 193, 7))
         self.assertEqual(len(list((source_dir / "train").glob("*.jsonl"))), 1)
         self.assertEqual(len(list((source_dir / "eval").glob("*.jsonl"))), 1)
         self.assertTrue(all(path.stat().st_size > 0 for path in result.train_files + result.eval_files))
@@ -173,7 +173,8 @@ class DownloadCorpusTests(unittest.TestCase):
         response = io.BytesIO(json.dumps(records, ensure_ascii=False).encode("utf-8"))
         with mock.patch.object(corpus.urllib.request, "urlopen", return_value=response) as download:
             result = corpus.build_corpus(output_dir=self.output, target_docs=12, min_doc_len=1,
-                                         max_docs_per_file=3, eval_ratio=0.25, chunk_size=1)
+                                         max_docs_per_file=3, eval_ratio=0.25, chunk_size=1,
+                                         url="https://example.test/documents.json")
         self.assertEqual(result.total_docs, 12)
         self.assertEqual(download.call_count, 1)
         self.assertTrue(response.closed)
@@ -233,7 +234,7 @@ class DownloadCorpusTests(unittest.TestCase):
 
     def test_unowned_name_collision_is_not_overwritten(self):
         source = self.source([{"text": f"document {index}"} for index in range(12)])
-        collision = self.output / "train" / "wiki_zh_part_001.jsonl"
+        collision = self.output / "train" / "lccc_part_001.jsonl"
         collision.parent.mkdir(parents=True)
         collision.write_bytes(b"user supplied data")
         before = self.snapshot()
@@ -292,7 +293,7 @@ class DownloadCorpusTests(unittest.TestCase):
         defaults = corpus.build_parser().parse_args([])
         self.assertEqual((defaults.target_docs, defaults.max_docs_per_file,
                           defaults.eval_ratio, defaults.seed, defaults.min_doc_len),
-                         (50000, 5000, 0.1, 42, 50))
+                         (52000, 5000, 2000 / 52000, 42, 2))
         source = self.source([{"text": f"document {index}"} for index in range(12)])
         arguments = ["--input", str(source), "--output-dir", str(self.output), "--target-docs", "12",
                      "--max-docs-per-file", "4", "--min-doc-len", "1", "--eval-ratio", "0.25"]
@@ -309,17 +310,17 @@ class DownloadCorpusTests(unittest.TestCase):
         dispatch.assert_called_once_with()
 
 
-    def test_default_50000_documents_produce_nine_train_and_one_eval_files(self):
-        source = self.source([{"text": f"d{index}"} for index in range(50000)])
+    def test_default_52000_documents_produce_50000_train_and_2000_eval(self):
+        source = self.source([{"text": f"d{index}"} for index in range(52000)])
         with mock.patch.object(corpus.urllib.request, "urlopen", side_effect=AssertionError("network")):
             result = corpus.build_corpus(source, self.output, min_doc_len=1)
-        self.assertEqual((result.total_docs, result.train_docs, result.eval_docs), (50000, 45000, 5000))
-        self.assertEqual((len(result.train_files), len(result.eval_files)), (9, 1))
-        self.assertEqual([len(self.texts([path])) for path in result.train_files], [5000] * 9)
-        self.assertEqual([len(self.texts([path])) for path in result.eval_files], [5000])
+        self.assertEqual((result.total_docs, result.train_docs, result.eval_docs), (52000, 50000, 2000))
+        self.assertEqual((len(result.train_files), len(result.eval_files)), (10, 1))
+        self.assertEqual([len(self.texts([path])) for path in result.train_files], [5000] * 10)
+        self.assertEqual([len(self.texts([path])) for path in result.eval_files], [2000])
         actual = self.texts(result.train_files + result.eval_files)
         self.assertEqual(len(actual), len(set(actual)))
-        self.assertEqual(set(actual), {f"d{index}" for index in range(50000)})
+        self.assertEqual(set(actual), {f"d{index}" for index in range(52000)})
         self.assertEqual(set(self.output.rglob("*.jsonl")), set(result.train_files + result.eval_files))
 
     def test_cap_boundaries_keep_contiguous_documents_and_no_empty_files(self):
@@ -336,7 +337,7 @@ class DownloadCorpusTests(unittest.TestCase):
                                         (result.train_files, shuffled[split_size:])):
                     self.assertEqual([len(self.texts([path])) for path in files], sizes)
                     self.assertEqual([path.name for path in files],
-                                     [f"wiki_zh_part_{index + 1:03d}.jsonl" for index in range(len(sizes))])
+                                     [f"lccc_part_{index + 1:03d}.jsonl" for index in range(len(sizes))])
                     for index, path in enumerate(files):
                         self.assertEqual(self.texts([path]), expected[index * cap:(index + 1) * cap])
                         self.assertGreater(path.stat().st_size, 0)

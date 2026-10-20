@@ -1,4 +1,5 @@
 import argparse
+from argparse import BooleanOptionalAction
 import math
 import random
 import sys
@@ -9,10 +10,12 @@ import torch
 from .config import (DEFAULT_OUTPUT, MAX_EPOCHS, BATCH_SIZE,
                      LEARNING_RATE, WARMUP_RATIO, MIN_LR_RATIO, WEIGHT_DECAY,
                      TRAIN_EVAL_SIZE, MIN_EPOCHS, EARLY_STOPPING_PATIENCE,
-                     MAX_SEQ_LEN, DEFAULT_TOKENIZER_MIN_FREQ, DEFAULT_VOCAB_SIZE)
+                     MAX_SEQ_LEN, DEFAULT_TOKENIZER_MIN_FREQ, DEFAULT_VOCAB_SIZE,
+                     GRAD_ACCUM_STEPS, EVAL_BATCH_SIZE, SAVE_EVERY_STEPS,
+                     EVAL_EVERY_STEPS, LABEL_SMOOTHING, ADAM_BETA2)
 from .data import resolve_data_paths
 from .inference import infer
-from .pre_training.trainer import pre_train
+from .pre_training.trainer import pre_train, validate_training_sources
 
 
 def build_parser():
@@ -34,13 +37,38 @@ def build_parser():
                           help="通用预训练序列长度，不能超过原模型 MAX_SEQ_LEN")
     training.add_argument("--poetry", action="store_true",
                           help="显式使用旧五绝数据筛选及逐首编码，便于旧实验对照")
-    training.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT,
-                          help="预训练（pre train）检查点输出目录，默认 checkpoints/pre_train")
+    training.add_argument("--output-dir", type=Path,
+                          help="新训练默认 checkpoints/pre_train/lccc；恢复沿用检查点目录；--init-from 必须指定新/空目录")
     training.add_argument("--vocab", type=Path,
                           help="只读加载已有 JSON tokenizer；不指定时只用训练集建表，旧词表不会被新默认词表覆盖")
-    training.add_argument("--resume", type=Path, help="从预训练 last.pt 恢复；复用保存的数据划分与训练参数")
+    initialization = training.add_mutually_exclusive_group()
+    initialization.add_argument("--resume", type=Path,
+                                help="恢复原实验的数据与完整状态；不能指定新的训练/验证输入")
+    initialization.add_argument("--init-from", type=Path,
+                                help="继承检查点权重和分词器，在显式指定的新语料上开始预训练新阶段；重置训练状态")
     training.add_argument("--epochs", type=int, default=MAX_EPOCHS, help="目标总轮数，不是新增轮数")
-    training.add_argument("--batch-size", type=int, default=BATCH_SIZE)
+    training.add_argument("--batch-size", type=int, default=BATCH_SIZE, help="单次前向 micro-batch，默认 4")
+    training.add_argument("--grad-accum-steps", type=int, default=GRAD_ACCUM_STEPS,
+                          help="每次优化器更新累积的微批数，默认 16；尾窗口也更新")
+    training.add_argument("--max-steps", type=int, default=None,
+                          help="整个实验的更新上限，新实验默认 10000；0 不限制，恢复默认沿用，可显式扩展")
+    training.add_argument("--max-tokens", type=int, default=None,
+                          help="整个实验有效训练 token 软上限；0 不限制，达到后完成当前累积窗口")
+    training.add_argument("--label-smoothing", type=float, default=LABEL_SMOOTHING)
+    training.add_argument("--adam-beta2", type=float, default=ADAM_BETA2)
+    training.add_argument("--optimizer-decay-groups", action=BooleanOptionalAction, default=True,
+                          help="默认矩阵衰减、norm/1D 不衰减；--no-optimizer-decay-groups 使用旧单组")
+    training.add_argument("--fused-adamw", action=BooleanOptionalAction, default=False,
+                          help="可选 CUDA fused AdamW；不支持时报错，不自动切换")
+    training.add_argument("--gradient-checkpointing", action=BooleanOptionalAction, default=False,
+                          help="仅训练启用逐 block 激活重计算，降低显存但增加计算")
+    training.add_argument("--eval-batch-size", type=int, default=EVAL_BATCH_SIZE)
+    training.add_argument("--eval-every-steps", type=int, default=EVAL_EVERY_STEPS,
+                          help="每 N 次更新做固定子集评估；0 仅 epoch/预算结束时评估")
+    training.add_argument("--eval-max-batches", type=int, default=64,
+                          help="步级验证固定子集的最多 batch 数；0 全量，epoch/预算结束总是全量")
+    training.add_argument("--save-every-steps", type=int, default=SAVE_EVERY_STEPS,
+                          help="每 N 次更新保存 last.pt 与轮内游标；0 仅 epoch/预算结束时保存")
     training.add_argument("--precision", choices=("auto", "bf16", "fp32"), default=None,
                           help="默认 auto：支持的 CUDA GPU 使用 BF16，否则 FP32；恢复时默认复用保存模式，可显式覆盖")
     training.add_argument("--lr", type=float, default=LEARNING_RATE, help="warmup 后的峰值学习率")
@@ -49,7 +77,7 @@ def build_parser():
     training.add_argument("--min-lr-ratio", type=float, default=MIN_LR_RATIO,
                           help="最低学习率 / 峰值学习率 [0,1]，默认 0.1")
     training.add_argument("--weight-decay", type=float, default=WEIGHT_DECAY,
-                          help="AdamW 权重衰减，默认 0.01；恢复训练时复用检查点中的值")
+                          help="AdamW 矩阵权重衰减，默认 0.1；恢复训练时复用检查点中的值")
     training.add_argument("--train-eval-size", type=int, default=TRAIN_EVAL_SIZE,
                           help="固定训练评估子集大小（首），默认 1024；0 表示全量，恢复时复用保存值")
     training.add_argument("--valid-ratio", type=float, default=0.1,
@@ -86,6 +114,21 @@ def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv if argv else ["preTrain"])
     if args.command == "preTrain":
+        try:
+            validate_training_sources(args)
+        except ValueError as error:
+            parser.error(str(error))
+        if args.output_dir is None:
+            # A legacy Wiki resume must never default to the new LCCC experiment.
+            args.output_dir = args.resume.parent if args.resume else DEFAULT_OUTPUT
+        if (args.grad_accum_steps < 1
+                or (args.max_steps is not None and args.max_steps < 0)
+                or (args.max_tokens is not None and args.max_tokens < 0)
+                or args.eval_batch_size < 1 or args.eval_every_steps < 0
+                or args.eval_max_batches < 0 or args.save_every_steps < 0
+                or not math.isfinite(args.label_smoothing) or not 0 <= args.label_smoothing <= 1
+                or not math.isfinite(args.adam_beta2) or not 0 <= args.adam_beta2 < 1):
+            parser.error("梯度累积/评估batch须为正；步数/token预算/间隔须非负；label-smoothing 在 [0,1]，adam-beta2 在 [0,1)")
         if (args.epochs < 1 or args.batch_size < 1 or args.min_freq < 1
                 or args.patience < 1 or args.min_epochs < 0 or args.train_eval_size < 0
                 or not math.isfinite(args.lr) or args.lr <= 0
