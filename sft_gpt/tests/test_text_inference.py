@@ -6,6 +6,7 @@ import torch
 
 from sft_gpt import HybridTokenizer, MiniGPT
 from sft_gpt.inference import generate
+from sft_gpt.config import MAX_SEQ_LEN
 
 
 class TextInferenceTests(unittest.TestCase):
@@ -24,11 +25,12 @@ class TextInferenceTests(unittest.TestCase):
             logits[:, -1, tokenizer.eos] = 20
             return logits
 
-        prompt = " user:  hello\nassistant: 你好🦊\n" * 8
+        unit = " user:  hello\nassistant: 你好🦊\n"
+        prompt = unit * (MAX_SEQ_LEN // len(unit) + 1)
         with mock.patch.object(model, "forward", side_effect=eos_logits):
             text = generate(model, tokenizer, prompt, top_k=1)
         self.assertEqual(text, prompt)
-        self.assertEqual(lengths, [128])
+        self.assertEqual(lengths, [MAX_SEQ_LEN])
 
     def test_byte_generation_masks_invalid_utf8_and_finishes_within_budget(self):
         tokenizer = HybridTokenizer.build([])

@@ -10,6 +10,7 @@ import torch
 
 from sft_gpt import HybridTokenizer, CharTokenizer, MiniGPT
 from sft_gpt.cli import main, build_parser
+from sft_gpt.config import MAX_SEQ_LEN
 from sft_gpt.pre_training import load_checkpoint, save_checkpoint, run_epoch
 from sft_gpt.tests.test_workflow import assert_nested_equal
 from sft_gpt.tokenization import tokenizer_spec
@@ -23,10 +24,10 @@ class TextWorkflowTests(unittest.TestCase):
     def test_general_cli_defaults_and_validation(self):
         args = build_parser().parse_args(["preTrain"])
         self.assertEqual(args.tokenizer, "hybrid")
-        self.assertEqual(args.seq_len, 128)
+        self.assertEqual(args.seq_len, MAX_SEQ_LEN)
         self.assertFalse(args.poetry)
         self.assertEqual(build_parser().parse_args(["preTrain", "--max-poems", "4"]).max_documents, 4)
-        for option, value in (("--seq-len", "0"), ("--seq-len", "129"),
+        for option, value in (("--seq-len", "0"), ("--seq-len", str(MAX_SEQ_LEN + 1)),
                               ("--vocab-size", "259"), ("--max-documents", "1")):
             with self.subTest(option=option, value=value), mock.patch("sys.stderr"), self.assertRaises(SystemExit):
                 main(["preTrain", option, value])

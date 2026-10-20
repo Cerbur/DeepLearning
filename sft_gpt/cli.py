@@ -6,10 +6,11 @@ from pathlib import Path
 
 import torch
 
-from .config import (DEFAULT_DATA, DEFAULT_OUTPUT, MAX_EPOCHS, BATCH_SIZE,
+from .config import (DEFAULT_OUTPUT, MAX_EPOCHS, BATCH_SIZE,
                      LEARNING_RATE, WARMUP_RATIO, MIN_LR_RATIO, WEIGHT_DECAY,
                      TRAIN_EVAL_SIZE, MIN_EPOCHS, EARLY_STOPPING_PATIENCE,
                      MAX_SEQ_LEN, DEFAULT_TOKENIZER_MIN_FREQ, DEFAULT_VOCAB_SIZE)
+from .data import resolve_data_paths
 from .inference import infer
 from .pre_training.trainer import pre_train
 
@@ -18,8 +19,12 @@ def build_parser():
     parser = argparse.ArgumentParser(description="MiniGPT 通用文本预训练（pre train）与推理")
     commands = parser.add_subparsers(dest="command")
     training = commands.add_parser("preTrain", help="预训练（pre train）；不传子命令时也进入预训练")
-    training.add_argument("--data", type=Path, default=DEFAULT_DATA,
-                          help="TXT/JSONL/JSON/CSV/TSV 文件或语料目录；不限制古诗格式")
+    training.add_argument("--train-data", "--data", dest="train_data", type=Path,
+                          help="训练文件或目录；--data 是兼容别名。均未指定时使用 .data/corpus/train")
+    training.add_argument("--eval-data", type=Path,
+                          help="验证文件或目录；均未指定时使用 .data/corpus/eval；仅训练输入时自动拆分")
+    training.add_argument("--data-workers", type=int, default=8,
+                          help="每个集合并发读取文件数，默认 8；训练/验证也并发加载")
     training.add_argument("--text-field", default="text", help="表格或 JSON 的文本字段名")
     training.add_argument("--tokenizer", choices=("hybrid", "char"), default="hybrid",
                           help="默认高频字符 + UTF-8 字节回退；char 保留旧字符建表方式")
@@ -36,6 +41,8 @@ def build_parser():
     training.add_argument("--resume", type=Path, help="从预训练 last.pt 恢复；复用保存的数据划分与训练参数")
     training.add_argument("--epochs", type=int, default=MAX_EPOCHS, help="目标总轮数，不是新增轮数")
     training.add_argument("--batch-size", type=int, default=BATCH_SIZE)
+    training.add_argument("--precision", choices=("auto", "bf16", "fp32"), default=None,
+                          help="默认 auto：支持的 CUDA GPU 使用 BF16，否则 FP32；恢复时默认复用保存模式，可显式覆盖")
     training.add_argument("--lr", type=float, default=LEARNING_RATE, help="warmup 后的峰值学习率")
     training.add_argument("--warmup-ratio", type=float, default=WARMUP_RATIO,
                           help="线性预热占计划训练步数的比例 [0,1)，默认 0.05；0 禁用预热")
@@ -45,7 +52,8 @@ def build_parser():
                           help="AdamW 权重衰减，默认 0.01；恢复训练时复用检查点中的值")
     training.add_argument("--train-eval-size", type=int, default=TRAIN_EVAL_SIZE,
                           help="固定训练评估子集大小（首），默认 1024；0 表示全量，恢复时复用保存值")
-    training.add_argument("--valid-ratio", type=float, default=0.1)
+    training.add_argument("--valid-ratio", type=float, default=0.1,
+                          help="仅训练输入时拆出验证集的比例，默认 0.1；已有独立验证输入时不重新拆分")
     training.add_argument("--min-freq", type=int, default=DEFAULT_TOKENIZER_MIN_FREQ,
                           help="高频字符阈值；hybrid 的低频字回退 UTF-8 字节，不丢为 UNK")
     training.add_argument("--min-epochs", type=int, default=MIN_EPOCHS)
@@ -87,8 +95,13 @@ def main(argv=None):
                 or not 0 < args.valid_ratio < 1
                 or args.max_documents < 0 or args.max_documents == 1
                 or not 1 <= args.seq_len <= MAX_SEQ_LEN
-                or args.vocab_size < 260 or not args.text_field):
-            parser.error("训练参数无效：轮数/批次/词频/耐心值须为正，train-eval-size 须非负，weight-decay 须非负且有限，warmup-ratio 在 [0,1)，min-lr-ratio 在 [0,1]，验证比例在 (0,1)，max-documents 为 0 或 >=2，seq-len 在模型上限内，vocab-size >=260")
+                or args.vocab_size < 260 or not args.text_field or args.data_workers < 1):
+            parser.error("训练参数无效：轮数/批次/词频/耐心值须为正，train-eval-size 须非负，weight-decay 须非负且有限，warmup-ratio 在 [0,1)，min-lr-ratio 在 [0,1]，验证比例在 (0,1)，max-documents 为 0 或 >=2，seq-len 在模型上限内，vocab-size >=260，data-workers 须为正整数")
+        if not args.resume:
+            try:
+                args.train_data, args.eval_data = resolve_data_paths(args.train_data, args.eval_data)
+            except ValueError as error:
+                parser.error(str(error))
     else:
         if (args.num_samples < 1 or args.max_new_tokens < 1 or args.top_k < 0
                 or not math.isfinite(args.temperature) or args.temperature <= 0):

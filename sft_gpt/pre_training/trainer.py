@@ -5,20 +5,24 @@ import shutil
 import torch
 
 from ..config import DEFAULT_VOCAB, DEFAULT_TEXT_VOCAB, MAX_SEQ_LEN, EARLY_STOPPING_DELTA, LABEL_SMOOTHING
-from ..data import (load_poems, load_texts, make_sequences, make_pretrain_sequences,
+from ..data import (load_train_eval_texts, make_sequences, make_pretrain_sequences,
                     select_train_eval_indices)
 from ..models import MiniGPT
 from ..tokenization import (CharTokenizer, HybridTokenizer, load_tokenizer, tokenizer_spec)
 from .checkpoint import load_checkpoint, save_checkpoint
 from .epoch import run_epoch
+from .precision import resolve_precision
 from .warmup_cosine_scheduler import WarmupCosineScheduler
 
 
 def pre_train(args, device):
     """运行自回归预训练（pre train），产出预训练检查点。"""
+    requested_precision = getattr(args, "precision", None)
     if args.resume:
         model, tokenizer, checkpoint = load_checkpoint(args.resume, device)
         settings = dict(checkpoint["train_settings"])
+        precision_policy = requested_precision or settings.get("precision", "auto")
+        precision = resolve_precision(device, precision_policy)
         if "train_texts" in checkpoint:
             train_texts, valid_texts = checkpoint["train_texts"], checkpoint["valid_texts"]
         else:
@@ -27,12 +31,12 @@ def pre_train(args, device):
         best_loss, best_epoch = checkpoint["best_loss"], checkpoint["best_epoch"]
         bad_epochs, history = checkpoint["bad_epochs"], checkpoint["history"]
     else:
-        texts = load_poems(args.data) if args.poetry else load_texts(args.data, args.text_field)
-        random.Random(args.seed).shuffle(texts)
-        if args.max_documents:
-            texts = texts[:args.max_documents]
-        valid_count = max(1, int(len(texts) * args.valid_ratio))
-        valid_texts, train_texts = texts[:valid_count], texts[valid_count:]
+        precision_policy = requested_precision or "auto"
+        precision = resolve_precision(device, precision_policy)
+        train_texts, valid_texts = load_train_eval_texts(
+            args.train_data, args.eval_data, text_field=args.text_field, seed=args.seed,
+            valid_ratio=args.valid_ratio, max_documents=args.max_documents,
+            workers=args.data_workers, poetry=args.poetry)
         if args.vocab is not None:
             tokenizer = load_tokenizer(args.vocab)
         elif args.poetry or args.tokenizer == "char":
@@ -50,6 +54,11 @@ def pre_train(args, device):
                         sequence_mode="poetry" if args.poetry else "packed",
                         seq_len=args.seq_len)
         start_epoch, best_loss, best_epoch, bad_epochs, history = 1, float("inf"), 0, 0, []
+    # 保存请求的策略，auto 恢复到不同硬件时可安全回退；旧检查点默认 auto。
+    settings["precision"] = precision_policy
+    print(f"训练/评估精度: {precision}（策略: {precision_policy}；模型权重保持 FP32）")
+    if args.resume and history:
+        print("恢复提示：更改精度或设备可能影响 loss 和早停比较；精确对照请保持相同设置。")
     if args.resume and args.vocab is not None:
         if tokenizer_spec(load_tokenizer(args.vocab)) != tokenizer_spec(tokenizer):
             raise ValueError("外部词表与检查点 token ID 不一致；恢复训练必须复用原词表")
@@ -132,9 +141,11 @@ def pre_train(args, device):
     for epoch in range(start_epoch, args.epochs + 1):
         lr_start = scheduler.get_last_lr()[0]
         objective = run_epoch(model, train_sequences, settings["batch_size"], device,
-                              optimizer, settings["label_smoothing"], scheduler)
-        train_eval_loss = run_epoch(model, train_eval_sequences, settings["batch_size"], device)
-        valid_loss = run_epoch(model, valid_sequences, settings["batch_size"], device)
+                              optimizer, settings["label_smoothing"], scheduler, precision=precision)
+        train_eval_loss = run_epoch(model, train_eval_sequences, settings["batch_size"], device,
+                                    precision=precision)
+        valid_loss = run_epoch(model, valid_sequences, settings["batch_size"], device,
+                               precision=precision)
         improved = valid_loss < best_loss - settings["min_delta"]
         if improved:
             best_loss, best_epoch, bad_epochs = valid_loss, epoch, 0

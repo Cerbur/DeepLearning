@@ -17,6 +17,11 @@ def load_original():
     spec = importlib.util.spec_from_file_location("original_mini_gpt", ORIGINAL)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    # Compare unchanged definitions at the active model size, not the legacy
+    # checkout's historical 96/4/128 defaults. Keep production modules untouched.
+    for name, value in config.MODEL_CONFIG.items():
+        setattr(module, name, value)
+    module.MODEL_CONFIG = dict(config.MODEL_CONFIG)
     return module
 
 

@@ -64,7 +64,7 @@ class TextDataTests(unittest.TestCase):
                 path = self.write_table("custom" + suffix, "body", expected)
                 self.assertEqual(load_texts(path, text_field="body"), expected)
                 with self.assertRaisesRegex(ValueError, "custom.*:1:"):
-                    load_texts(path)
+                    load_texts(path, strict=True)
 
     def test_json_configurable_text_field_and_single_record(self):
         self.write_json("a.json", {"body": "  one \n"})
@@ -94,19 +94,19 @@ class TextDataTests(unittest.TestCase):
             with self.subTest(record=record):
                 path = self.write_text("bad.jsonl", '\n{"text":"valid"}\n' + json.dumps(record) + '\n')
                 with self.assertRaises(ValueError) as raised:
-                    load_texts(path)
+                    load_texts(path, strict=True)
                 self.assertIn(str(path) + ":3:", str(raised.exception))
 
     def test_json_schema_error_reports_physical_record_line(self):
         path = self.write_text("bad.json", '[\n  {"text": "valid"},\n\n  {"messages": [{"role": "tool", "content": "x"}]}\n]')
         with self.assertRaises(ValueError) as raised:
-            load_texts(path)
+            load_texts(path, strict=True)
         self.assertIn(str(path) + ":4:", str(raised.exception))
         for payload in (None, 1, "text"):
             with self.subTest(payload=payload):
                 self.write_json("bad.json", payload)
                 with self.assertRaisesRegex(ValueError, "bad.json:1:"):
-                    load_texts(path)
+                    load_texts(path, strict=True)
 
     def test_invalid_json_syntax_reports_source_line(self):
         for name, source, line in (("syntax.jsonl", '\n{"text": "ok"}\n{bad}\n', 3),
@@ -114,7 +114,7 @@ class TextDataTests(unittest.TestCase):
             with self.subTest(name=name):
                 path = self.write_text(name, source)
                 with self.assertRaises(ValueError) as raised:
-                    load_texts(path)
+                    load_texts(path, strict=True)
                 self.assertIn(str(path) + f":{line}:", str(raised.exception))
 
     def test_missing_table_values_and_malformed_csv_are_not_silently_skipped(self):
@@ -123,7 +123,7 @@ class TextDataTests(unittest.TestCase):
             with self.subTest(source=source):
                 path = self.write_text("bad.csv", source)
                 with self.assertRaises(ValueError) as raised:
-                    load_texts(path)
+                    load_texts(path, strict=True)
                 self.assertIn(str(path) + f":{line}:", str(raised.exception))
 
     def test_duplicate_table_headers_and_extra_columns_are_rejected(self):
@@ -134,7 +134,7 @@ class TextDataTests(unittest.TestCase):
                 with self.subTest(suffix=suffix, source=source):
                     path = self.write_text("ambiguous" + suffix, source)
                     with self.assertRaises(ValueError) as raised:
-                        load_texts(path)
+                        load_texts(path, strict=True)
                     self.assertIn(str(path) + f":{line}:", str(raised.exception))
 
     def test_empty_documents_removed_and_only_full_text_duplicates_removed(self):
@@ -144,7 +144,7 @@ class TextDataTests(unittest.TestCase):
         self.assertEqual(load_texts(path), ["same", " same "])
         self.write_json("texts.json", [{"text": "same"}, {"text": "same"}])
         with self.assertRaisesRegex(ValueError, "至少需要两个"):
-            load_texts(path)
+            load_texts(path, strict=True)
         self.write_text("empty.txt", "\n \t\n")
         with self.assertRaisesRegex(ValueError, "至少需要两个"):
             load_texts(self.root / "empty.txt")

@@ -11,7 +11,7 @@ ROPE_BASE = 10000.0  # Rotary Positional Embedding 基数
 DROPOUT_RATE = 0.1
 MAX_TOKEN_FREQ = 5
 # 训练参数
-BATCH_SIZE = 16 # 训练批次大小
+BATCH_SIZE = 32 # 训练批次大小
 MAX_EPOCHS = 1000 # 最大训练轮数
 MIN_EPOCHS = 10 # 最小训练轮数
 LEARNING_RATE = 0.002 # warmup 后的峰值学习率
@@ -24,7 +24,9 @@ LABEL_SMOOTHING = 0.1 # 标签平滑
 TRAIN_EVAL_SIZE = 1024 # 固定训练评估子集大小，0 表示完整训练集
 
 BASE_DIR = Path(__file__).resolve().parent
-DEFAULT_DATA = BASE_DIR / ".data" / "five_char_quatrains.tsv"
+DEFAULT_DATA = BASE_DIR / ".data" / "five_char_quatrains.tsv"  # 旧五绝数据 API
+DEFAULT_TRAIN_DATA = BASE_DIR / ".data" / "corpus" / "train"
+DEFAULT_EVAL_DATA = BASE_DIR / ".data" / "corpus" / "eval"
 DEFAULT_OUTPUT = BASE_DIR / "checkpoints" / "pre_train"
 DEFAULT_VOCAB = BASE_DIR / ".data" / "tokenizer" / "vocab.json"  # 旧字符词表
 DEFAULT_TEXT_VOCAB = BASE_DIR / ".data" / "tokenizer" / "text_vocab.json"

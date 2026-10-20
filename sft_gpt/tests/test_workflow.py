@@ -39,6 +39,8 @@ def assert_pretrain_checkpoint_matches_original(case, expected, actual):
     case.assertEqual(original_payload.pop("tokenizer")["type"], "CharTokenizer")
     original_payload["train_settings"].pop("sequence_mode", None)
     original_payload["train_settings"].pop("seq_len", None)
+    # 精度策略是新增元数据；CPU auto 仍与原 FP32 轨迹逐位一致。
+    case.assertEqual(original_payload["train_settings"].pop("precision"), "auto")
     assert_nested_equal(case, expected, original_payload)
 
 
